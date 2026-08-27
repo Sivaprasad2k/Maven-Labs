@@ -1,48 +1,66 @@
 # EC2 System Monitor
 
-A lightweight, zero-framework Java 17 HTTP monitoring service running directly on an AWS EC2 Linux instance. It exposes structured metrics about the JVM, Java process, operating system, CPU, memory, and filesystem via a REST-style JSON HTTP API.
+A lightweight, zero-framework Java 17 HTTP monitoring service that runs directly on an AWS EC2 Linux instance and exposes structured system, JVM, process, CPU, memory, and filesystem metrics through a REST-style JSON HTTP API.
+
+> **Note**: This is a hands-on learning project designed to explore lower-level Java, HTTP server, and JVM/OS integration mechanisms. It is **not** intended to replace enterprise monitoring platforms such as AWS CloudWatch, Prometheus, or Grafana.
 
 ---
 
-## 1. Project Purpose
-The purpose of `ec2-system-monitor` is to provide a real-time, low-overhead system monitoring endpoint on AWS EC2 without deploying heavy enterprise frameworks.
+## 1. Project Overview
 
-## 2. Why This Project Exists
-This project serves as a hands-on learning experiment to understand the direct relationship between Java, the JVM, the operating system, process management, file storage, HTTP networking, and cloud Linux environments.
+`ec2-system-monitor` provides real-time system and runtime metrics for an AWS EC2 instance without relying on heavy web frameworks or external cloud SDKs. Built with standard Java 17 APIs, it exposes HTTP endpoints that return structured JSON metrics suitable for lightweight status checks and operational inspection.
 
-## 3. Why Java's Built-in HTTP Server is Used Instead of Spring Boot
-Instead of pulling in Spring Boot (which abstracts web server creation, auto-configuration, and dependency injection), this service directly uses `com.sun.net.httpserver.HttpServer`. This demonstrates what happens under the hood before abstractions like Spring Web or Tomcat are introduced.
+---
+
+## 2. Learning Objective
+
+This project connects key software engineering and infrastructure concepts:
+
+```text
+Java 17 ──► Maven ──► JVM ──► Operating System ──► Filesystem ──► Process ──► HTTP ──► Linux ──► AWS EC2 ──► Git/GitHub
+```
+
+### Why Java's Built-in HTTP Server Was Used Instead of Spring Boot
+Instead of adopting Spring Boot (which abstracts server startup, auto-configuration, and request mapping), this project uses `com.sun.net.httpserver.HttpServer`. Building the application using core Java standard libraries demonstrates what exists underneath Spring Boot before higher-level abstractions are introduced.
+
+---
+
+## 3. Technology Stack
+
+- **Java Development Kit**: Java 17 (`OpenJDK 17.0.17` locally, `Amazon Corretto 17.0.20` on EC2)
+- **Build Tool**: Apache Maven (`3.9.9` locally, `3.8.4` on EC2)
+- **HTTP Server**: `com.sun.net.httpserver.HttpServer` (Java Standard Library)
+- **JSON Serialization**: Jackson Databind (`com.fasterxml.jackson.core:jackson-databind:2.15.2`)
+- **Unit Testing**: JUnit 5 (`org.junit.jupiter:junit-jupiter:5.10.0`)
+- **Packaging Plugin**: Apache Maven Shade Plugin (`maven-shade-plugin:3.5.0`)
+- **Target OS & Infrastructure**: Amazon Linux 2023 on AWS EC2 (`ap-south-2`)
+- **Version Control**: Git `2.50.1` & GitHub
 
 ---
 
 ## 4. Architecture
 
-A layered monolithic architecture separates HTTP transport, business service, configuration, and domain models:
+The application follows a small, layered monolithic architecture where each component has a strict single responsibility:
 
-```text
-HTTP Client (curl / browser)
-        │
-        ▼
-MonitorHttpServer  ◄──  AppConfig (PORT = 8080 / env)
-  (HttpServer, ThreadPool)
-        │
-        ├──► HttpResponseUtil (Jackson JSON Serialization, Status Codes)
-        │
-        ▼
-SystemMonitorService
-        │
-        ├──► JVM APIs (Runtime.getRuntime())
-        ├──► OS APIs (ManagementFactory.getOperatingSystemMXBean())
-        ├──► Process APIs (ProcessHandle.current())
-        └──► Filesystem APIs (File / Java NIO)
+```mermaid
+graph TD
+    Client["HTTP Client (curl / browser)"] --> Server["MonitorHttpServer (HttpServer, ThreadPool)"]
+    Config["AppConfig (PORT = 8080 / env)"] --> Server
+    Server --> Util["HttpResponseUtil (Jackson JSON, HTTP Headers)"]
+    Server --> Service["SystemMonitorService"]
+    Service --> JVM["JVM APIs (Runtime)"]
+    Service --> OS["OS APIs (OperatingSystemMXBean)"]
+    Service --> Process["Process APIs (ProcessHandle)"]
+    Service --> FS["Filesystem APIs (File / NIO)"]
 ```
 
-- **`Application`**: Entry point and lifecycle management (JVM shutdown hooks).
-- **`AppConfig`**: Manages environment configuration (`PORT`).
-- **`MonitorHttpServer`**: Configures `com.sun.net.httpserver.HttpServer`, registers context routes, and manages thread pool executors.
-- **`HttpResponseUtil`**: Centralized HTTP headers, JSON serialization with Jackson, and error response formatting.
-- **`SystemMonitorService`**: Core metric collection service using Java standard APIs.
-- **Models**: `HealthResponse`, `SystemInfo`, `ResourceMetrics`, `DiskInfo`.
+### Layer Responsibilities:
+- **`Application`**: Application entry point and JVM shutdown hook registration.
+- **`AppConfig`**: Manages environment configuration (`PORT`) and fallback defaults.
+- **`MonitorHttpServer`**: Handles HTTP server creation, route context registration, request dispatching, and thread pool execution.
+- **`HttpResponseUtil`**: Centralized HTTP headers (`Content-Type: application/json`), Jackson JSON serialization, and error response formatting.
+- **`SystemMonitorService`**: Core metric collection engine isolating system monitoring logic from HTTP transport.
+- **`model`**: Immutable DTO data structures representing API payloads (`HealthResponse`, `SystemInfo`, `ResourceMetrics`, `DiskInfo`).
 
 ---
 
@@ -52,6 +70,9 @@ SystemMonitorService
 ec2-system-monitor/
 ├── README.md
 ├── pom.xml
+├── docs/
+│   └── images/
+│       └── ec2-api-verification.png
 └── src/
     ├── main/
     │   └── java/
@@ -84,40 +105,47 @@ ec2-system-monitor/
                             └── SystemMonitorServiceTest.java
 ```
 
----
-
-## 6. Maven Configuration & Dependencies
-- **`groupId`**: `com.shevay`
-- **`artifactId`**: `ec2-system-monitor`
-- **`version`**: `1.0-SNAPSHOT`
-- **`packaging`**: `jar`
-
-### Dependencies:
-- `com.fasterxml.jackson.core:jackson-databind:2.15.2`: High-performance JSON serialization.
-- `org.junit.jupiter:junit-jupiter:5.10.0`: Unit testing framework (`test` scope).
-
-## 7. Java 17 Configuration
-Built explicitly for Java 17 using `<maven.compiler.release>17</maven.compiler.release>` and `maven-compiler-plugin:3.11.0`.
+### Understanding the Directory Layout:
+- **Maven Directory Convention** (`src/main/java`, `src/test/java`): Enforces standardized build layout across all Java project tooling.
+- **Java Package Hierarchy** (`com.shevay.monitor`): Prevents global namespace collisions and organizes source files into logical domains (`config`, `model`, `server`, `service`).
+- **Application Architecture**: Dictates runtime dependency flow, separating concerns so the monitoring service does not depend on HTTP classes.
 
 ---
 
-## 8. System Information Sources & Metrics
+## 6. Maven Configuration
 
-### 9. JVM Memory vs. System Memory
-- **JVM Memory**: Reported via `Runtime.getRuntime()`. Reflects heap memory allocated to this Java process (`usedMemoryBytes`, `committedMemoryBytes`, `maxMemoryBytes`).
-- **System Memory**: Total OS RAM. Kept distinct to avoid confusion between JVM heap limits and total EC2 instance memory.
+```xml
+<groupId>com.shevay</groupId>
+<artifactId>ec2-system-monitor</artifactId>
+<version>1.0-SNAPSHOT</version>
+<packaging>jar</packaging>
+```
 
-### 10. Process Uptime vs. EC2 Instance Uptime
-- **Process Uptime**: Obtained via `ProcessHandle.current().info().startInstant()`. Reports how long *this Java application process* has been running.
-- **EC2 Instance Uptime**: Total uptime of the EC2 Linux virtual machine since boot.
+### Why Java 17 is Explicitly Configured
+Legacy Maven archetypes often generated `pom.xml` configurations defaulting to Java 5 (`1.5`) source and target settings. Because modern Java compilers (JDK 12+) have retired support for Java 5 bytecode generation, attempting to build old archetypes on JDK 17 causes compiler failures (`Source option 5 is no longer supported`). 
+
+`ec2-system-monitor` explicitly specifies `<maven.compiler.release>17</maven.compiler.release>` and uses `maven-compiler-plugin:3.11.0` to ensure clear, reproducible compilation under Java 17.
 
 ---
 
-## 11. API Documentation
+## 7. System Monitoring & Metrics Collection
+
+Metric collection relies entirely on standard Java standard library APIs:
+
+- **JVM Memory**: Collected via `Runtime.getRuntime()`. Tracks heap memory (`totalMemory`, `freeMemory`, `maxMemory`).
+- **Operating System & CPU**: Collected via `java.lang.management.ManagementFactory.getOperatingSystemMXBean()`. Tracks OS name, version, architecture, available processors, system load average, and CPU load.
+- **Process Information**: Collected via `java.lang.ProcessHandle.current()`. Captures process ID (`pid`) and process start time to compute process uptime.
+- **Filesystem Space**: Collected via `java.io.File`. Reports total, free, usable, and used disk space for the application directory partition.
+
+---
+
+## 8. API Documentation
 
 ### 1. `GET /api/health`
 - **Purpose**: Liveness check endpoint.
-- **Status Code**: `200 OK`
+- **HTTP Method**: `GET`
+- **Expected Status**: `200 OK`
+- **`curl` Command**: `curl -i http://localhost:8080/api/health`
 - **Example Response**:
 ```json
 {
@@ -129,11 +157,13 @@ Built explicitly for Java 17 using `<maven.compiler.release>17</maven.compiler.r
 
 ### 2. `GET /api/system`
 - **Purpose**: Static system and runtime metadata.
-- **Status Code**: `200 OK`
+- **HTTP Method**: `GET`
+- **Expected Status**: `200 OK`
+- **`curl` Command**: `curl -i http://localhost:8080/api/system`
 - **Example Response**:
 ```json
 {
-  "hostname": "ip-172-31-39-135",
+  "hostname": "ip-172-31-39-135.ap-south-2.compute.internal",
   "osName": "Linux",
   "osVersion": "6.18.41-94.142.amzn2023.x86_64",
   "architecture": "amd64",
@@ -144,7 +174,9 @@ Built explicitly for Java 17 using `<maven.compiler.release>17</maven.compiler.r
 
 ### 3. `GET /api/metrics`
 - **Purpose**: Dynamic CPU, JVM heap memory, process PID, and uptime metrics.
-- **Status Code**: `200 OK`
+- **HTTP Method**: `GET`
+- **Expected Status**: `200 OK`
+- **`curl` Command**: `curl -i http://localhost:8080/api/metrics`
 - **Example Response**:
 ```json
 {
@@ -160,64 +192,229 @@ Built explicitly for Java 17 using `<maven.compiler.release>17</maven.compiler.r
 
 ### 4. `GET /api/disk`
 - **Purpose**: Storage disk space utilization for application partition.
-- **Status Code**: `200 OK`
+- **HTTP Method**: `GET`
+- **Expected Status**: `200 OK`
+- **`curl` Command**: `curl -i http://localhost:8080/api/disk`
 - **Example Response**:
 ```json
 {
   "path": "/home/ec2-user/Maven/Maven-Labs/projects/02-aws-ec2/ec2-system-monitor/.",
-  "totalBytes": 16106127360,
-  "freeBytes": 10737418240,
-  "usableBytes": 10737418240,
-  "usedBytes": 5368709120
+  "totalBytes": 8510222336,
+  "freeBytes": 6262480896,
+  "usableBytes": 6262480896,
+  "usedBytes": 2247741440
+}
+```
+
+### Error Responses
+
+#### `404 Not Found` (Unknown Endpoint)
+- **`curl` Command**: `curl -i http://localhost:8080/api/unknown`
+- **Response**:
+```json
+{
+  "status": 404,
+  "error": "Endpoint Not Found: /api/unknown"
+}
+```
+
+#### `405 Method Not Allowed` (Unsupported HTTP Method)
+- **`curl` Command**: `curl -i -X POST http://localhost:8080/api/health`
+- **Response**:
+```json
+{
+  "status": 405,
+  "error": "Method Not Allowed. Only GET is supported."
 }
 ```
 
 ---
 
-## 12. Running & Testing
+## 9. Running Locally
 
-### Running Locally / on EC2:
 ```bash
+# Verify environment
+java -version
+mvn -version
+
 # Build executable shaded JAR
 mvn clean package
 
-# Run with default port 8080
+# Run application locally
 java -jar target/ec2-system-monitor-1.0-SNAPSHOT.jar
 
-# Run with custom port 9090
-PORT=9090 java -jar target/ec2-system-monitor-1.0-SNAPSHOT.jar
+# Test in a separate terminal
+curl http://localhost:8080/api/health
 ```
 
-### `curl` Verification Commands:
+---
+
+## 10. Running on AWS EC2
+
 ```bash
-curl -i http://localhost:8080/api/health
-curl -i http://localhost:8080/api/system
-curl -i http://localhost:8080/api/metrics
-curl -i http://localhost:8080/api/disk
-curl -i http://localhost:8080/api/unknown-path   # Returns HTTP 404
+# Connect to EC2 instance and navigate to project directory
+cd ~/Maven/Maven-Labs/projects/02-aws-ec2/ec2-system-monitor
+
+# Build project on EC2
+mvn clean package
+
+# Start monitoring service
+java -jar target/ec2-system-monitor-1.0-SNAPSHOT.jar
+
+# Verify endpoints from a second SSH session
+curl http://localhost:8080/api/health
+curl http://localhost:8080/api/system
+curl http://localhost:8080/api/metrics
+curl http://localhost:8080/api/disk
 ```
 
 ---
 
-## 13. Concurrency & Error Handling
-- **Bounded Executor**: Uses `Executors.newFixedThreadPool(10)` to prevent thread starvation under concurrent requests.
-- **Graceful Shutdown**: Registers a JVM shutdown hook (`Runtime.getRuntime().addShutdownHook`) that stops the HTTP server and shuts down executor threads cleanly.
-- **Error Safety**: Exceptions are logged server-side; clients receive clean JSON error payloads (`HTTP 404`, `HTTP 405`, `HTTP 500`) without stack trace leaks.
+## 11. EC2 Runtime Verification
+
+The application was deployed, built, and executed directly on Amazon Linux 2023 inside AWS EC2 (`ap-south-2`). The image below shows the actual EC2 terminal session verifying API responses and 404 error handling:
+
+![EC2 API Verification](docs/images/ec2-api-verification.png)
+
+*Caption: API endpoints `/api/health`, `/api/system`, `/api/disk`, and `/api/unknown` (404 Not Found) verified locally from an EC2 SSH session using curl.*
 
 ---
 
-## 14. Testing Suite
-Includes 15 automated unit tests (`AppConfigTest`, `SystemMonitorServiceTest`, `MonitorHttpServerTest`) verifying environment configuration, Java metrics collection, route handling, HTTP status codes, and JSON response formatting.
+## 12. Configuration & Environment Overrides
+
+Application configuration is managed centrally by `AppConfig.java`.
+
+- **Default Port**: `8080`
+- **Environment Variable Override**: `PORT`
+
+### Custom Port Example:
+```bash
+PORT=9090 java -jar target/ec2-system-monitor-1.0-SNAPSHOT.jar
+
+# Verify on custom port
+curl http://localhost:9090/api/health
+```
+
+### Why Deployment Configuration Should Not Be Hardcoded:
+Hardcoding ports or host settings prevents applications from adapting to container environments, cloud platform configurations, or local port conflicts without modifying source code and recompiling binaries.
 
 ---
 
-## 15. Conceptual Mapping to Spring Boot
+## 13. Concurrency & Thread Pool Management
 
-| Feature in `ec2-system-monitor` | Equivalent in Spring Boot |
+- **Bounded Thread Pool**: Configured with `Executors.newFixedThreadPool(10)` to manage HTTP client requests.
+- **Controlled Resource Usage**: A bounded thread pool prevents resource exhaustion (such as out-of-memory errors caused by spawning an unlimited thread per request under high traffic).
+- **Executor Shutdown**: Cleanly stops worker threads when the server halts to prevent unmanaged daemon threads from remaining active in the JVM.
+
+---
+
+## 14. Error Handling & Security
+
+- **No Exposed Stack Traces**: Exceptions occurring during request processing are logged server-side via `java.util.logging.Logger`. Clients receive structured JSON error payloads (`404`, `405`, `500`).
+- **Zero Command Execution**: Metric collection relies exclusively on standard Java library calls. The service does **not** invoke shell commands (`Runtime.exec` or `ProcessBuilder` are not used).
+- **Path Parameter Input Restriction**: The service does not accept arbitrary filesystem path inputs from HTTP clients, preventing path traversal vulnerabilities.
+
+---
+
+## 15. Graceful Shutdown
+
+The application registers a JVM shutdown hook (`Runtime.getRuntime().addShutdownHook`):
+
+```java
+Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+    LOGGER.info("Shutdown signal received. Stopping EC2 System Monitor...");
+    server.stop();
+}));
+```
+
+When `Ctrl+C` or a termination signal is sent to the process:
+1. `HttpServer.stop(1)` halts incoming HTTP connections with a 1-second grace period.
+2. The executor pool (`ExecutorService`) is shut down cleanly.
+3. The process exits without leaving zombie worker threads.
+
+---
+
+## 16. Testing Strategy
+
+The test suite includes 15 automated unit tests executed via `mvn test`:
+
+- **`AppConfigTest`** (5 tests): Verifies default port fallback, custom `PORT` environment handling, invalid string parsing, and out-of-range port validation.
+- **`SystemMonitorServiceTest`** (4 tests): Verifies environment-independent metric collection (hostname presence, positive processor counts, non-negative memory/disk values).
+- **`MonitorHttpServerTest`** (6 tests): End-to-end HTTP integration tests verifying route matching (`/api/health`, `/api/system`, `/api/metrics`, `/api/disk`), HTTP 200 status codes, JSON serialization, 404 unknown routes, and 405 unsupported methods.
+
+### Automated Tests vs. EC2 Manual Verification:
+- **Automated Tests**: Assert functional logic, JSON serialization, and edge cases inside an isolated test environment.
+- **EC2 Verification**: Confirms real-world deployment compatibility on Amazon Linux 2023 hardware and JVM configurations.
+
+---
+
+## 17. Build Artifact & Git Hygiene
+
+Running `mvn clean package` generates an executable shaded JAR:
+
+```text
+target/ec2-system-monitor-1.0-SNAPSHOT.jar
+```
+
+The `target/` directory contains compiled bytecode and build outputs. It is strictly excluded from version control via `.gitignore`.
+
+---
+
+## 18. Security Considerations
+
+- **No Authentication/Authorization**: Exposes public metrics without login headers. Access should be restricted at the network level.
+- **AWS Security Group Best Practices**: HTTP port `8080` should **not** be open to `0.0.0.0/0`. Restrict inbound security group rules to specific admin IP addresses (`/32`) or access locally via SSH tunneling.
+- **Educational Scope**: Intended for learning system monitoring concepts, not production enterprise deployment.
+
+---
+
+## 19. Architecture Design Decisions
+
+| Design Choice | Rationale / Engineering Trade-off |
+| :--- | :--- |
+| **Java `HttpServer`** | Understand fundamental HTTP request/response handling without framework abstractions. |
+| **Java Standard APIs** | Avoid external shell command dependencies (`df`, `top`) for reliability and security. |
+| **Layered Packages** | Strict separation of concerns (transport, service logic, models, configuration). |
+| **Jackson Library** | Fast, robust, standardized JSON object serialization. |
+| **`PORT` Environment Config** | Flexible deployment configuration across local, container, and EC2 environments. |
+| **Bounded Thread Pool** | Protect system memory and CPU against thread starvation under request spikes. |
+
+---
+
+## 20. Engineering Lessons Learned
+
+1. **Maven Build Lifecycle**: How phases (`compile`, `test`, `package`) interact with plugins (`compiler`, `surefire`, `shade`).
+2. **Java JDK vs. Project Target**: Why explicit target settings (`<release>17</release>`) are required under modern JDKs.
+3. **HTTP Networking in Core Java**: Creating socket listeners, parsing request URIs, setting headers, and streaming response bytes.
+4. **JVM vs. OS Metrics**: How to extract live CPU, heap memory, filesystem, and process telemetry directly from Java runtime interfaces.
+
+---
+
+## 21. Important Conceptual Distinctions
+
+- **JVM Memory ≠ OS RAM**: `Runtime.getRuntime().maxMemory()` reports the maximum heap size allocated to the JVM, not total physical server RAM.
+- **Process Uptime ≠ EC2 Instance Uptime**: `ProcessHandle.current().info().startInstant()` tracks Java application uptime, not total VM uptime since boot.
+- **`localhost` Context**: `localhost` inside Windows terminal refers to the local machine; `localhost` inside EC2 SSH session refers to the AWS EC2 Linux virtual machine.
+- **Maven Build Time ≠ Application Runtime**: Maven compiles and packages binaries during the build phase; the application executes independently via `java -jar`.
+
+---
+
+## 22. Limitations
+
+- **Memory Context**: Measures JVM heap memory rather than total OS physical RAM.
+- **CPU Platform Variations**: `systemCpuLoad` availability depends on underlying JVM OS management bean support.
+- **No Persistence**: Metrics are real-time point-in-time snapshots; historical metrics are not persisted to a database.
+- **Zero Authentication**: Designed strictly for internal/local learning use.
+
+---
+
+## 23. Conceptual Mapping to Spring Boot
+
+| Core Java Implementation in `ec2-system-monitor` | Conceptual Equivalent in Spring Boot |
 | :--- | :--- |
 | `com.sun.net.httpserver.HttpServer` | Embedded Tomcat / Jetty (`spring-boot-starter-web`) |
 | `AppConfig` | `@ConfigurationProperties` / `application.properties` |
-| `HttpResponseUtil` + Jackson | `@RestController` + Spring MVC MessageConverters |
+| `HttpResponseUtil` + Jackson | `@RestController` + `@GetMapping` + Spring MVC MessageConverters |
 | `SystemMonitorService` | `@Service` Spring Bean |
 | `SystemMonitorServiceTest` | `@WebMvcTest` / `@SpringBootTest` |
 | `/api/health` & `/api/metrics` | Spring Boot Actuator (`/actuator/health`, `/actuator/metrics`) |
