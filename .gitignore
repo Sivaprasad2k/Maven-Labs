@@ -1,5 +1,6 @@
 # Maven target directory
 target/
+dependency-reduced-pom.xml
 
 # Compiled class files
 *.class
