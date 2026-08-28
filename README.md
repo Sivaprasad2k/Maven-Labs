@@ -34,7 +34,7 @@ More Advanced Maven Projects (Multi-module, CI/CD, Plugins)
 
 | Environment | Method | Status | Details / Verified Configurations |
 | :--- | :--- | :--- | :--- |
-| **AWS EC2 Linux** | Primary Cloud Execution & Deployment | Completed | Amazon Linux 2023 (`i-0077573b92a678a48`), Amazon Corretto 17.0.20, Apache Maven 3.8.4. Executable `ec2-system-monitor` service active. |
+| **AWS EC2 Linux** | Primary Cloud Execution & Deployment | Completed | Amazon Linux 2023 (`i-0077573b92a678a48`), Amazon Corretto 17.0.20, Apache Maven 3.8.4. Executable `ec2-system-monitor` and `maven-release-lab` services active. |
 | **IntelliJ IDEA** | Primary IDE Development Environment | Active | Primary IDE configured for Maven project creation, dependency management, tool window execution, testing, and debugging. |
 
 ---
