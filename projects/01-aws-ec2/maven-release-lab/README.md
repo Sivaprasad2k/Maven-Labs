@@ -246,7 +246,7 @@ ssh -i "java.pem" ec2-user@ec2-16-113-88-194.ap-south-2.compute.amazonaws.com
 
 ### 2. Navigate to Project & Build Production Profile
 ```bash
-cd ~/Maven/projects/02-aws-ec2/maven-release-lab
+cd ~/Maven/projects/01-aws-ec2/maven-release-lab
 mvn clean package -Pproduction
 ```
 

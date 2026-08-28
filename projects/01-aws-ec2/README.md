@@ -1,6 +1,10 @@
-# 01 - AWS EC2 Linux Maven Guide & Java 17 Experiment
+# 01 - AWS EC2 Linux Maven Guide & Hands-on Projects
 
-This guide documents the setup, project structure, compilation troubleshooting, root cause analysis, and resolution for our Maven application (`shevay-app`) running on an **AWS EC2 Linux** instance.
+This guide documents the setup, project structure, compilation troubleshooting, root cause analysis, and resolution for Maven applications running on an **AWS EC2 Linux** instance.
+
+### AWS EC2 Projects:
+1. **`ec2-system-monitor`**: Lightweight Java 17 HTTP system monitoring service.
+2. **`maven-release-lab`**: Advanced Maven release lab demonstrating profiles (`dev`/`production`), resource filtering, dependency scopes, and shaded JAR packaging.
 
 ---
 

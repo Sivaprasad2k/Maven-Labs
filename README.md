@@ -55,7 +55,9 @@ Maven-Labs/
 │   └── troubleshooting.md       # Real-world errors, causes, and solutions
 │
 └── projects/                 # Practical environment-specific laboratories
-    ├── 01-aws-ec2/           # AWS EC2 Linux cloud laboratory & ec2-system-monitor project
+    ├── 01-aws-ec2/           # AWS EC2 Linux cloud laboratory
+    │   ├── ec2-system-monitor/ # Java 17 zero-framework system monitor
+    │   └── maven-release-lab/  # Maven profiles, resource filtering & release lab
     └── 02-intellij/          # IntelliJ IDEA Maven IDE integration laboratory
 ```
 
