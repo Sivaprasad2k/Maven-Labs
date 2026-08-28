@@ -1,38 +1,34 @@
 # Maven Release Lab
 
-A lightweight, zero-framework Java 17 HTTP microservice laboratory designed to demonstrate advanced Apache Maven build automation concepts, profile management, resource filtering, dependency scopes, transitive dependencies, plugin management, and AWS EC2 cloud deployment.
+A lightweight, zero-framework Java 17 HTTP microservice laboratory designed to demonstrate Apache Maven build automation concepts, profile management, resource filtering, dependency scopes, transitive dependencies, plugin management, and AWS EC2 deployment.
 
 ---
 
-## 🎯 Purpose & Project Status
+## Purpose
 
-**Project Status**: `COMPLETE / VERIFIED ON AWS EC2`
-
-`maven-release-lab` is the second hands-on laboratory in the **AWS EC2 Laboratory** (`~/Maven/Maven-Labs/projects/01-aws-ec2/maven-release-lab`). Its primary purpose is to make declarative Maven build automation mechanisms, profile switching, resource filtering, and dependency resolution observable at runtime through a lightweight executable Java service.
+`maven-release-lab` is the second project in the AWS EC2 laboratory (`projects/01-aws-ec2/maven-release-lab`). Its purpose is to make declarative Maven build automation mechanisms—such as environment profile switching, resource filtering, dependency scope isolation, and shaded fat-JAR packaging—observable at runtime through an executable Java service.
 
 ---
 
-## 📚 Learning Objectives
+## Maven Concepts Demonstrated
 
-This laboratory provides practical, hands-on demonstration of key Maven concepts:
-
-1. **Maven Coordinates**: Declarative project identification (`com.shevay:maven-release-lab:1.0.0`).
+1. **Declarative Coordinates**: `com.shevay:maven-release-lab:1.0.0`
 2. **Java 17 Compiler Configuration**: Modern build targeting using `<maven.compiler.release>17</maven.compiler.release>`.
-3. **Maven Lifecycle Execution**: Sequential phase processing (`validate`, `compile`, `test`, `package`, `verify`).
-4. **Maven Profiles**: Dynamic environment configuration switching (`-Pdev` vs. `-Pproduction`).
-5. **Resource Filtering**: Injecting POM properties (`${project.artifactId}`, `${project.version}`, `${build.profile}`) into `application.properties` during `process-resources`.
+3. **Lifecycle Execution**: Phase processing (`validate`, `compile`, `test`, `package`, `verify`).
+4. **Build Profiles**: Dynamic configuration switching (`-Pdev` vs. `-Pproduction`).
+5. **Resource Filtering**: Injecting POM properties (`${project.artifactId}`, `${project.version}`, `${build.profile}`, `${build.environment}`) into `application.properties` during `process-resources`.
 6. **Dependency Scopes**: Classpath isolation comparing `compile` scope (`jackson-databind`) against `test` scope (`junit-jupiter`).
 7. **Transitive Dependencies**: Resolving downstream library graphs (`jackson-databind` → `jackson-core`, `jackson-annotations`).
-8. **Plugin Configuration**: Lifecycle goal bindings for `compiler`, `resources`, `surefire`, `jar`, `shade`, and `dependency` plugins.
+8. **Plugin Goals**: Goal bindings for `compiler`, `resources`, `surefire`, `jar`, `shade`, and `dependency` plugins.
 9. **Automated Testing**: Unit test execution via `maven-surefire-plugin` and JUnit 5.
-10. **Packaging Architecture**: Standard bytecode archives vs. executable shaded fat JARs (`maven-shade-plugin`).
-11. **AWS EC2 Cloud Execution**: Deployment and runtime HTTP endpoint verification on Amazon Linux 2023.
+10. **Packaging**: Standard bytecode archives vs. executable shaded fat JARs (`maven-shade-plugin`).
+11. **Cloud Execution**: Deployment and runtime HTTP verification on Amazon Linux 2023.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-The application uses a clean, layered architecture relying exclusively on core Java 17 standard libraries and Jackson JSON serialization:
+The application relies on core Java 17 standard libraries (`com.sun.net.httpserver.HttpServer`) and Jackson JSON serialization:
 
 ```mermaid
 graph TD
@@ -51,17 +47,17 @@ graph TD
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 maven-release-lab/
 ├── pom.xml                                    # Declarative build definition, profiles & plugins
-├── README.md                                  # Comprehensive technical lab documentation
+├── README.md                                  # Project documentation & laboratory guide
 └── src/
     ├── main/
     │   ├── java/
     │   │   └── com/shevay/releaselab/
-    │   │       ├── Application.java           # Main entry point & shutdown hook
+    │   │       ├── Application.java           # Entry point & JVM shutdown hook
     │   │       ├── config/
     │   │       │   └── AppConfig.java         # Classpath properties loader & PORT resolver
     │   │       ├── model/                     # Immutable DTO payloads
@@ -89,7 +85,7 @@ maven-release-lab/
 
 ---
 
-## ⚙️ Maven Configuration (`pom.xml`)
+## Maven Configuration
 
 ```xml
 <groupId>com.shevay</groupId>
@@ -105,15 +101,13 @@ maven-release-lab/
 </properties>
 ```
 
-### Key Highlights:
-- **`modelVersion 4.0.0`**: Standard XML schema for Maven 3.x.
-- **`<maven.compiler.release>17</maven.compiler.release>`**: Configures `javac --release 17` to ensure source level, target bytecode level, and bootstrap classpath match Java 17 requirements.
+Using `<maven.compiler.release>17</maven.compiler.release>` configures `javac --release 17` to ensure source level, target bytecode version, and bootstrap classpath match Java 17.
 
 ---
 
-## 🎛️ Profiles
+## Build Profiles
 
-The build configures two profiles in `pom.xml`:
+The project configures two build profiles in `pom.xml`:
 
 ```xml
 <profiles>
@@ -137,15 +131,14 @@ The build configures two profiles in `pom.xml`:
 </profiles>
 ```
 
-### Profile Commands:
-* **Development Build**: `mvn clean package -Pdev` (Injects `build.profile=dev`, `build.environment=development`).
-* **Production Build**: `mvn clean package -Pproduction` (Injects `build.profile=production`, `build.environment=production`).
+- **Development Build**: `mvn clean package -Pdev` (Injects `build.profile=dev`, `build.environment=development`).
+- **Production Build**: `mvn clean package -Pproduction` (Injects `build.profile=production`, `build.environment=production`).
 
 ---
 
-## 🔄 Resource Filtering Mechanics
+## Resource Filtering
 
-Maven resource filtering is enabled in `pom.xml`:
+Resource filtering is configured in `pom.xml`:
 
 ```xml
 <resources>
@@ -156,7 +149,7 @@ Maven resource filtering is enabled in `pom.xml`:
 </resources>
 ```
 
-### Property Ingestion Pipeline:
+### Property Ingestion Pipeline
 
 ```text
 1. Template Source (src/main/resources/application.properties)
@@ -166,36 +159,33 @@ Maven resource filtering is enabled in `pom.xml`:
    app.environment=${build.environment}
        │
        ▼ (maven-resources-plugin during process-resources phase)
-2. Filtered Artifact (target/classes/application.properties)
+2. Filtered Output (target/classes/application.properties)
    app.name=maven-release-lab
    app.version=1.0.0
    app.profile=production
    app.environment=production
        │
        ▼ (AppConfig loaded via ClassLoader at runtime)
-3. HTTP Service Endpoint Output (curl http://localhost:8080/api/build)
+3. HTTP Service Response (curl http://localhost:8080/api/build)
    {"application":"maven-release-lab","version":"1.0.0","buildProfile":"production","environment":"production"}
 ```
 
 ---
 
-## 📦 Dependencies & Scopes
+## Dependency Management
 
-### 1. Direct Compile Dependency
-`com.fasterxml.jackson.core:jackson-databind:2.15.2` (scope: `compile`)
-- Required at compile time and packaged into the final executable JAR.
+### Direct Compile Dependency
+- `com.fasterxml.jackson.core:jackson-databind:2.15.2` (`compile` scope)
 
-### 2. Transitive Dependencies
-Maven automatically resolves downstream dependencies required by `jackson-databind`:
+### Transitive Dependencies
 - `com.fasterxml.jackson.core:jackson-annotations:2.15.2:compile`
 - `com.fasterxml.jackson.core:jackson-core:2.15.2:compile`
 
-### 3. Test Dependencies
-- `org.junit.jupiter:junit-jupiter-api:5.10.0` (scope: `test`)
-- `org.junit.jupiter:junit-jupiter-engine:5.10.0` (scope: `test`)
-- Available strictly during `mvn test` execution. Excluded from production runtime binaries.
+### Test Dependencies
+- `org.junit.jupiter:junit-jupiter-api:5.10.0` (`test` scope)
+- `org.junit.jupiter:junit-jupiter-engine:5.10.0` (`test` scope)
 
-### Verified Dependency Tree Output (`mvn dependency:tree`):
+### Verified Dependency Tree (`mvn dependency:tree`)
 ```text
 [INFO] com.shevay:maven-release-lab:jar:1.0.0
 [INFO] +- com.fasterxml.jackson.core:jackson-databind:jar:2.15.2:compile
@@ -210,30 +200,25 @@ Maven automatically resolves downstream dependencies required by `jackson-databi
 
 ---
 
-## 🚀 Maven Lifecycle Verification on AWS EC2
+## Plugin Configuration
 
-The complete default and clean build lifecycles were executed directly on AWS EC2 (`Amazon Linux 2023`, `Amazon Corretto 17.0.20`, `Apache Maven 3.8.4`):
-
-```bash
-cd ~/Maven/Maven-Labs/projects/01-aws-ec2/maven-release-lab
-mvn clean validate
-mvn clean compile
-mvn clean test
-mvn clean package
-mvn clean verify
-```
-
-### Verification Results:
-Every command returned **`BUILD SUCCESS`**, confirming complete lifecycle stability across resource processing, compilation, test execution, packaging, and validation.
+| Lifecycle Phase | Bound Plugin Goal | Function |
+| :--- | :--- | :--- |
+| `validate` | `maven-plugin-api` | Validates POM schema & project metadata. |
+| `process-resources` | `maven-resources-plugin:resources` | Copies resources and performs POM property substitution. |
+| `compile` | `maven-compiler-plugin:compile` | Compiles application Java sources using `javac --release 17`. |
+| `test-compile` | `maven-compiler-plugin:testCompile` | Compiles test sources in `src/test/java`. |
+| `test` | `maven-surefire-plugin:test` | Runs JUnit 5 test suites. |
+| `package` | `maven-jar-plugin:jar` | Packages compiled bytecode into standard JAR archive. |
+| `package` | `maven-shade-plugin:shade` | Bundles project classes and runtime dependencies into executable fat JAR. |
 
 ---
 
-## 🧪 Test Execution Results
+## Testing
 
-Automated unit tests were executed on AWS EC2 via `maven-surefire-plugin:3.1.2`:
+Automated tests are executed via `maven-surefire-plugin:3.1.2`:
 
 ```text
-[INFO] --- surefire:3.1.2:test (default-test) @ maven-release-lab ---
 [INFO] Running com.shevay.releaselab.config.AppConfigTest
 [INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.045 s
 [INFO] Running com.shevay.releaselab.service.ReleaseLabServiceTest
@@ -246,8 +231,7 @@ Automated unit tests were executed on AWS EC2 via `maven-surefire-plugin:3.1.2`:
 [INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0
 ```
 
-### Verified Test Summary:
-- **Total Tests Run**: 12
+- **Total Tests**: 12
 - **Passed**: 12
 - **Failures**: 0
 - **Errors**: 0
@@ -255,60 +239,43 @@ Automated unit tests were executed on AWS EC2 via `maven-surefire-plugin:3.1.2`:
 
 ---
 
-## 📦 Packaging Architecture & Shaded Fat JAR
+## Packaging
 
-Executing `mvn clean package` generates two artifacts in the `target/` directory:
+Executing `mvn clean package` produces two artifacts in `target/`:
 
-1. **`target/maven-release-lab-1.0.0.jar`** (**Executable Shaded Fat JAR**):
+1. **`target/maven-release-lab-1.0.0.jar`** (Executable Shaded Fat JAR):
    - Produced by `maven-shade-plugin:3.5.0`.
-   - Replaces the default JAR artifact.
-   - Contains compiled application classes (`com/shevay/releaselab/`) **plus all transitive Jackson runtime dependencies** (`com/fasterxml/jackson/`).
-   - Includes manifest main class entry point: `Main-Class: com.shevay.releaselab.Application`.
-   - Verified via `jar tf target/maven-release-lab-1.0.0.jar`.
-
-2. **`target/original-maven-release-lab-1.0.0.jar`** (**Unshaded Original Bytecode Archive**):
-   - Created by `maven-jar-plugin:3.3.0` and preserved separately by Shade plugin.
+   - Replaces the default primary artifact.
+   - Contains application classes (`com/shevay/releaselab/`) and Jackson runtime dependencies (`com/fasterxml/jackson/`).
+   - Declares `Main-Class: com.shevay.releaselab.Application` in `META-INF/MANIFEST.MF`.
+2. **`target/original-maven-release-lab-1.0.0.jar`** (Unshaded Original Bytecode Archive):
+   - Created by `maven-jar-plugin:3.3.0` and preserved separately by the Shade plugin.
    - Contains only project bytecode and resources without third-party dependencies.
 
-> **Note**: There is no file named `maven-release-lab-1.0.0-shaded.jar`. The Shade plugin intentionally replaces `target/maven-release-lab-1.0.0.jar` with the final executable fat JAR.
+> [!NOTE]
+> The Shade plugin replaces `target/maven-release-lab-1.0.0.jar` with the final shaded fat JAR. No file named `maven-release-lab-1.0.0-shaded.jar` is generated.
 
 ---
 
-## ☁️ AWS EC2 Deployment & Production Execution
+## AWS EC2 Deployment
 
-### EC2 Specification:
-- **Instance Platform**: AWS EC2 (Amazon Linux 2023 `kernel 6.18.41-94.142.amzn2023.x86_64`)
-- **JDK Runtime**: Amazon Corretto `17.0.20`
-- **Build Tool**: Apache Maven `3.8.4`
+### Verified Environment
+- **Platform**: AWS EC2 (`ap-south-2`, Amazon Linux 2023 `6.18.41-94.142.amzn2023.x86_64`)
+- **JDK Runtime**: Amazon Corretto 17.0.20
+- **Build Tool**: Apache Maven 3.8.4
 
-### Deployment Steps Executed on EC2:
+### Execution Commands
 ```bash
-# 1. Navigate to project root
 cd ~/Maven/Maven-Labs/projects/01-aws-ec2/maven-release-lab
-
-# 2. Package production profile
 mvn clean package -Pproduction
-
-# 3. Launch production service
 java -jar target/maven-release-lab-1.0.0.jar
 ```
 
-### Terminal Launch Output:
-```text
-INFO: Maven Release Lab HTTP Server started on port 8080
-INFO: Application is running (Profile: production, Env: production). Press Ctrl+C to terminate.
-```
-
 ---
 
-## 🌐 API Reference & Verification Output
-
-Endpoints verified live on AWS EC2 using `curl`:
+## API Reference
 
 ### 1. `GET /api/health`
-```bash
-curl -i http://localhost:8080/api/health
-```
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=UTF-8
@@ -317,9 +284,6 @@ Content-Type: application/json; charset=UTF-8
 ```
 
 ### 2. `GET /api/info`
-```bash
-curl -i http://localhost:8080/api/info
-```
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=UTF-8
@@ -328,9 +292,6 @@ Content-Type: application/json; charset=UTF-8
 ```
 
 ### 3. `GET /api/build` (Production Profile)
-```bash
-curl -i http://localhost:8080/api/build
-```
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=UTF-8
@@ -338,12 +299,7 @@ Content-Type: application/json; charset=UTF-8
 {"application":"maven-release-lab","version":"1.0.0","buildProfile":"production","environment":"production"}
 ```
 
-### 4. `GET /api/build` (Development Profile Verification)
-```bash
-mvn clean package -Pdev
-java -jar target/maven-release-lab-1.0.0.jar
-curl -i http://localhost:8080/api/build
-```
+### 4. `GET /api/build` (Development Profile)
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=UTF-8
@@ -351,80 +307,62 @@ Content-Type: application/json; charset=UTF-8
 {"application":"maven-release-lab","version":"1.0.0","buildProfile":"dev","environment":"development"}
 ```
 
-### 5. Error Route Verification
-
-#### Unknown Route (`404 Not Found`)
-```bash
-curl -i http://localhost:8080/api/unknown
-```
-```http
-HTTP/1.1 404 Not Found
-Content-Type: application/json; charset=UTF-8
-
-{"status":404,"error":"Endpoint Not Found: /api/unknown"}
-```
-
-#### Unsupported Method (`405 Method Not Allowed`)
-```bash
-curl -i -X POST http://localhost:8080/api/health
-```
-```http
-HTTP/1.1 405 Method Not Allowed
-Content-Type: application/json; charset=UTF-8
-
-{"status":405,"error":"Method Not Allowed. Only GET is supported."}
-```
+### 5. Error Routes
+- **`GET /api/unknown`**: Returns `404 Not Found` (`{"status":404,"error":"Endpoint Not Found: /api/unknown"}`).
+- **`POST /api/health`**: Returns `405 Method Not Allowed` (`{"status":405,"error":"Method Not Allowed. Only GET is supported."}`).
 
 ### EC2 Terminal Session Verification
-The application was deployed, built, and executed directly on Amazon Linux 2023 inside AWS EC2 (`ap-south-2`). The image below demonstrates the actual EC2 terminal session executing `curl -i` requests against `/api/health`, `/api/info`, `/api/build`, `/api/unknown` (404 Not Found), and `POST /api/health` (405 Method Not Allowed):
 
 ![EC2 API Verification](docs/images/ec2-api-verification.png)
 
-*Caption: Live EC2 terminal session verifying API responses, HTTP headers, status codes, and error payloads for maven-release-lab.*
+*API endpoints `/api/health`, `/api/info`, `/api/build`, `/api/unknown` (404), and `POST /api/health` (405) verified live on AWS EC2 using curl.*
 
 ---
 
-##📊 EC2 Verification Matrix
+## Verification Results
 
-| Endpoint | HTTP Method | Expected Status | EC2 Verified Status | Verified Response Payload |
-| :--- | :---: | :---: | :---: | :--- |
-| `/api/health` | `GET` | 200 OK | **200 OK** | `{"status":"UP"}` |
-| `/api/info` | `GET` | 200 OK | **200 OK** | `{"application":"maven-release-lab","version":"1.0.0","environment":"production","javaVersion":"17.0.20","operatingSystem":"Linux"}` |
-| `/api/build` | `GET` | 200 OK | **200 OK** | `{"application":"maven-release-lab","version":"1.0.0","buildProfile":"production","environment":"production"}` |
-| `/api/unknown` | `GET` | 404 Not Found | **404 Not Found** | `{"status":404,"error":"Endpoint Not Found: /api/unknown"}` |
-| `/api/health` | `POST` | 405 Method Not Allowed | **405 Method Not Allowed** | `{"status":405,"error":"Method Not Allowed. Only GET is supported."}` |
+| Lifecycle Command | Result | Notes |
+| :--- | :--- | :--- |
+| `mvn clean validate` | **BUILD SUCCESS** | Validated POM schema & project metadata on EC2 |
+| `mvn clean compile` | **BUILD SUCCESS** | Compiled main Java sources using javac --release 17 |
+| `mvn clean test` | **BUILD SUCCESS** | Executed 12 Surefire unit tests (0 failures, 0 errors) |
+| `mvn clean package` | **BUILD SUCCESS** | Built standard JAR and shaded executable fat JAR |
+| `mvn clean verify` | **BUILD SUCCESS** | Verified build integrity and artifact packaging |
 
 ---
 
-## 🛠️ Troubleshooting & Operational Incidents
+## Troubleshooting
 
-### Operational Port Conflict Incident (`BindException`)
-During initial development verification on EC2, launching the application resulted in the following error:
+### Operational Port Conflict (`BindException`)
+During initial service startup on EC2, the process encountered:
 ```text
 java.net.BindException: Address already in use
 ```
-- **Cause**: A background Java process (PID `7357`) was occupying port `8080`.
-- **Diagnostic Commands Used**:
+- **Diagnostic Commands**:
   ```bash
   ss -ltnp | grep ':8080'
   sudo lsof -i :8080
   ```
-- **Resolution**: Identified process PID `7357` and executed `kill -9 7357`. The service subsequently bound to port `8080` cleanly.
+- **Resolution**: Identified stale Java process PID `7357` occupying port `8080` and terminated it (`kill -9 7357`). The service subsequently bound to port `8080` successfully.
 
 ---
 
-## ⚠️ Known Build Warnings
+## Known Build Warnings
 
-1. **Shade Overlapping Resource Warnings**:
-   - `maven-shade-plugin:3.5.0` emitted non-fatal warnings regarding overlapping `META-INF/MANIFEST.MF`, `META-INF/LICENSE`, `META-INF/NOTICE`, and `module-info.class` entries across transitive Jackson archives. These are expected during shading and do not impact execution.
-2. **Resource Encoding Warning**:
-   - Maven logged a non-fatal notification that file encoding was not explicitly specified for filtering (`Using platform encoding UTF-8`).
+1. **Shade Overlapping Resource Warnings**: `maven-shade-plugin:3.5.0` emitted non-fatal warnings regarding overlapping `META-INF/MANIFEST.MF`, `LICENSE`, `NOTICE`, and `module-info.class` files across Jackson dependencies.
+2. **Resource Encoding Warning**: Maven logged a notification that encoding was not explicitly configured for resource filtering (`Using platform encoding UTF-8`).
 
 ---
 
-## 💡 Key Engineering Lessons Learned
+## Engineering Notes
 
-1. **Profile-Driven Configuration**: How Maven profiles isolate environment variables from source code.
-2. **Resource Filtering Mechanics**: Replaces manual configuration management with automated build-time property injection.
-3. **Dependency Graph Resolution**: Utilizing `mvn dependency:tree` to trace direct vs. transitive library graphs.
-4. **Shaded Fat JAR Packaging**: Creating standalone executable binaries containing main class manifests and bundled runtime dependencies for cloud deployment.
+1. **Profile Isolation**: Profiles separate environment configuration from source code, enabling build-time dynamic injection.
+2. **Resource Filtering Mechanics**: Property placeholders inside resources are substituted during the `process-resources` phase before packaging.
+3. **Dependency Graph Auditing**: Executing `mvn dependency:tree` allows inspecting direct vs. transitive dependencies and verifying scope isolation.
+4. **Shaded Fat JAR Packaging**: The `maven-shade-plugin` combines application classes and runtime dependencies into a single executable archive suitable for cloud deployment.
+
+---
+
+## Status
+
+**Status**: `Verified on AWS EC2`
