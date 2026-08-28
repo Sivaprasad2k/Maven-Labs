@@ -1,6 +1,6 @@
 # Maven Troubleshooting & Error Reference
 
-This guide documents common errors encountered when working with Apache Maven across local CLI, AWS EC2 Linux, and IDE environments, complete with root cause analyses and step-by-step solutions.
+This guide documents common errors encountered when working with Apache Maven across AWS EC2 Linux, IntelliJ IDEA, and command-line execution, complete with root cause analyses and step-by-step solutions.
 
 ---
 

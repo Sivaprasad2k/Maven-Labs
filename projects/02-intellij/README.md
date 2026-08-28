@@ -1,4 +1,4 @@
-# 03 - IntelliJ IDEA Maven Integration Guide
+# 02 - IntelliJ IDEA Maven Integration Guide
 
 This guide documents creating and managing Apache Maven projects inside **IntelliJ IDEA**, detailing how IDE features map directly to underlying Maven CLI lifecycle phases and goals.
 
@@ -10,7 +10,7 @@ This guide documents creating and managing Apache Maven projects inside **Intell
 2. Select **Maven** from the left-hand menu.
 3. Configure project settings:
    - **Name**: `simple-maven-project`
-   - **Location**: `e:\Maven\projects\03-intellij\simple-maven-project`
+   - **Location**: `e:\Maven\projects\02-intellij\simple-maven-project`
    - **JDK**: Select **17** (e.g., Temurin 17 or Oracle OpenJDK 17).
    - **GroupId**: `com.mycompany.app`
    - **ArtifactId**: `simple-maven-project`

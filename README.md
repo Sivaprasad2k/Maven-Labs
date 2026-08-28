@@ -6,26 +6,36 @@ This repository is designed as a long-term resource containing detailed document
 
 ---
 
-## 🎯 Learning Objectives
+## 🎯 Learning Objectives & Strategy
 
-This repository covers key concepts and hands-on practices across Apache Maven:
+This repository follows a structured, progressive learning sequence:
 
-* **Maven Fundamentals**: Core architecture, declarative build models, and convention over configuration.
-* **Project Structure**: Standard directory layouts (`src/main`, `src/test`, `target`) and conventions.
-* **POM (`pom.xml`)**: Object model, coordinates (`groupId`, `artifactId`, `version`), parent POMs, and properties.
-* **Maven Lifecycle**: Default, clean, and site lifecycles; phases and bindings.
-* **Build Automation & Environments**: Using Maven CLI on local machines, AWS EC2 Linux instances, and IntelliJ IDEA integration.
-* **Git & GitHub Integration**: Version controlling Maven projects, ignoring build artifacts, and repository management.
+```text
+Maven Concepts (docs/)
+      ↓
+AWS EC2 Hands-on (projects/01-aws-ec2/)
+      ↓
+IntelliJ IDEA Workflow (projects/02-intellij/)
+      ↓
+More Advanced Maven Projects (Multi-module, CI/CD, Plugins)
+```
+
+### Core Focus Areas:
+* **Maven Fundamentals**: Core architecture, declarative build models, GAV coordinates (`groupId`, `artifactId`, `version`), and convention over configuration.
+* **Project Structure**: Standard directory layouts (`src/main/java`, `src/test/java`, `target`) and conventions.
+* **POM (`pom.xml`)**: Object model, dependencies, properties, `<maven.compiler.release>17</maven.compiler.release>`, plugins, and profiles.
+* **Maven Lifecycle**: Default, clean, and site lifecycles; phases and goal bindings.
+* **AWS EC2 Cloud Laboratory**: Maven on Linux, Java builds, dependency resolution, packaging executable shaded JARs, environment variable configuration, Linux process management, ports, HTTP system monitoring, and future CI/CD deployment.
+* **IntelliJ IDEA IDE Laboratory**: Project creation/import, `pom.xml` editing, Maven tool window execution, dependency tree navigation, unit test execution, debugging, and IDE plugin management.
 
 ---
 
 ## 🛠️ Environment Matrix
 
-| Environment   | Method            | Status      | Details / Verified Configurations |
-| ------------- | ----------------- | ----------- | --------------------------------- |
-| **Local Machine** | Maven CLI         | In Progress | Windows 11, OpenJDK 17.0.17 verified. Maven CLI installation pending. |
-| **AWS EC2 Linux** | Maven CLI         | Completed   | Amazon Linux 2023 (`i-0077573b92a678a48`), Amazon Corretto 17.0.20, Apache Maven 3.8.4. Project `shevay-app` active. |
-| **IntelliJ IDEA** | Maven Integration | In Progress | Primary IDE configured for Maven project management & lifecycle execution. |
+| Environment | Method | Status | Details / Verified Configurations |
+| :--- | :--- | :--- | :--- |
+| **AWS EC2 Linux** | Primary Cloud Execution & Deployment | Completed | Amazon Linux 2023 (`i-0077573b92a678a48`), Amazon Corretto 17.0.20, Apache Maven 3.8.4. Executable `ec2-system-monitor` service active. |
+| **IntelliJ IDEA** | Primary IDE Development Environment | Active | Primary IDE configured for Maven project creation, dependency management, tool window execution, testing, and debugging. |
 
 ---
 
@@ -38,32 +48,31 @@ Maven-Labs/
 │
 ├── docs/                     # Core theoretical & practical guides
 │   ├── 01-maven-overview.md     # Introduction to Maven & build automation concepts
-│   ├── 02-installation.md       # Setup guides for Windows CLI, AWS EC2 Linux, and IntelliJ IDEA
+│   ├── 02-installation.md       # Setup guides for AWS EC2 Linux, IntelliJ IDEA, and Maven CLI
 │   ├── 03-project-structure.md  # Maven standard directory layout breakdown
 │   ├── 04-pom-xml.md            # Deep dive into project object model (pom.xml)
 │   ├── 05-maven-lifecycle.md    # Lifecycles, phases, and goal bindings
 │   └── troubleshooting.md       # Real-world errors, causes, and solutions
 │
-└── projects/                 # Practical environment-specific project guides
-    ├── 01-local-cli/         # Hands-on guide for Windows local Maven CLI
-    ├── 02-aws-ec2/           # Hands-on guide for AWS EC2 Linux (i-0077573b92a678a48) & shevay-app
-    └── 03-intellij/          # Hands-on guide for IntelliJ IDEA Maven integration
+└── projects/                 # Practical environment-specific laboratories
+    ├── 01-aws-ec2/           # AWS EC2 Linux cloud laboratory & ec2-system-monitor project
+    └── 02-intellij/          # IntelliJ IDEA Maven IDE integration laboratory
 ```
 
 ---
 
 ## 🗺️ Learning Roadmap
 
-- [x] Install Maven on EC2 (`Apache Maven 3.8.4`)
-- [x] Create Maven project on EC2 (`shevay-app`)
-- [x] Understand pom.xml
-- [ ] Maven lifecycle
-- [ ] Dependencies
-- [ ] Dependency scopes
-- [ ] Plugins
-- [ ] Maven repositories
-- [ ] Packaging
-- [ ] Testing
-- [ ] Maven profiles
-- [ ] Multi-module Maven
-- [ ] Maven with CI/CD
+- [x] Install Maven on AWS EC2 (`Apache Maven 3.8.4`)
+- [x] Create and build standard Maven projects on EC2
+- [x] Implement lightweight Java 17 system monitoring service (`ec2-system-monitor`)
+- [x] Deep dive into `pom.xml` (`<maven.compiler.release>17</maven.compiler.release>`)
+- [x] Integrate IntelliJ IDEA Maven Tool Window & lifecycle execution
+- [ ] Maven lifecycle deep dive & custom goal bindings
+- [ ] Dependency resolution, transitive dependencies & scopes
+- [ ] Maven plugin configuration (`compiler`, `surefire`, `shade`)
+- [ ] Remote repositories & distribution management
+- [ ] Multi-module Maven project architecture
+- [ ] Automated testing & code coverage plugins
+- [ ] Maven build profiles (`dev`, `prod`, `cloud`)
+- [ ] Automated CI/CD pipelines with GitHub Actions

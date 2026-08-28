@@ -20,12 +20,13 @@ The **Project Object Model (`pom.xml`)** is the core configuration unit of any A
 
     <!-- Properties -->
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 </project>
 ```
+
+> **Modern Best Practice Note**: In Java 9+, using `<maven.compiler.release>17</maven.compiler.release>` is preferred over setting `<maven.compiler.source>` and `<maven.compiler.target>` separately. The `--release` flag automatically configures the source level, target bytecode version, and the matching Java platform bootstrap classpath simultaneously.
 
 ---
 
@@ -78,8 +79,7 @@ Defines compiler plugins, source directory overrides, resources filtering, and p
             <artifactId>maven-compiler-plugin</artifactId>
             <version>3.11.0</version>
             <configuration>
-                <source>17</source>
-                <target>17</target>
+                <release>17</release>
             </configuration>
         </plugin>
     </plugins>

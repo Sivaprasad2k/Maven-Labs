@@ -1,4 +1,4 @@
-# 02 - AWS EC2 Linux Maven Guide & Java 17 Experiment
+# 01 - AWS EC2 Linux Maven Guide & Java 17 Experiment
 
 This guide documents the setup, project structure, compilation troubleshooting, root cause analysis, and resolution for our Maven application (`shevay-app`) running on an **AWS EC2 Linux** instance.
 

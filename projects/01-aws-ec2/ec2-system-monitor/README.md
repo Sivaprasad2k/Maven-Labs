@@ -198,7 +198,7 @@ Metric collection relies entirely on standard Java standard library APIs:
 - **Example Response**:
 ```json
 {
-  "path": "/home/ec2-user/Maven/Maven-Labs/projects/02-aws-ec2/ec2-system-monitor/.",
+  "path": "/home/ec2-user/Maven/Maven-Labs/projects/01-aws-ec2/ec2-system-monitor/.",
   "totalBytes": 8510222336,
   "freeBytes": 6262480896,
   "usableBytes": 6262480896,
@@ -253,7 +253,7 @@ curl http://localhost:8080/api/health
 
 ```bash
 # Connect to EC2 instance and navigate to project directory
-cd ~/Maven/Maven-Labs/projects/02-aws-ec2/ec2-system-monitor
+cd ~/Maven/Maven-Labs/projects/01-aws-ec2/ec2-system-monitor
 
 # Build project on EC2
 mvn clean package
