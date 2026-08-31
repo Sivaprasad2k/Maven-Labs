@@ -1,17 +1,17 @@
 # Maven Knowledge Lab
 
 ## Project Purpose
-Maven Knowledge Lab is a Java 17 CLI-based Retrieval-Augmented Generation (RAG) learning system designed to demonstrate end-to-end document processing, vector search, context construction, and LLM-assisted question answering over local knowledge repositories.
+Maven Knowledge Lab is a Java 17 CLI-based Retrieval-Augmented Generation (RAG) learning system designed to demonstrate end-to-end document processing, vector embeddings, local vector storage, context construction, and LLM-assisted question answering over local knowledge repositories.
 
 ## Current Implementation Stage
-Current Status: Stage 2 - Document Ingestion and Deterministic Chunking
+Current Status: Phase 3 - Embedding Provider
 
-Stage 2 implements recursive document discovery, UTF-8 file reading, SHA-256 deterministic document identity and content hashing, character-based text chunking with configurable overlap, ingestion result reporting, CLI integration, and offline unit testing.
+Phase 3 implements a provider-neutral embedding abstraction, L2 vector normalization, a production REST API client for Google Gemini `gemini-embedding-001` (768 dimensions), a deterministic offline test provider (`DummyEmbeddingProvider`), CLI embedding integration, and a comprehensive test suite with opt-in live integration testing.
 
-EXPLICIT STATEMENT: Vector embeddings (Stage 3), vector storage (Stage 4), cosine similarity retrieval (Stage 5), context construction and LLM answer generation (Stage 6-8) ARE NOT IMPLEMENTED YET IN STAGE 2.
+EXPLICIT STATEMENT: Vector database storage (Phase 4), similarity search and cosine ranking (Phase 5), context construction and LLM answer generation (Phase 6-8) ARE NOT IMPLEMENTED YET IN PHASE 3.
 
-## Ingestion Architecture
-The Stage 2 pipeline operates as follows:
+## System Architecture
+The Phase 1 through Phase 3 pipeline operates as follows:
 ```text
 knowledge/ Directory
        │
@@ -28,39 +28,54 @@ TextChunker (Deterministic character windowing, configurable size & overlap)
 DocumentChunk (SHA-256 canonical chunk ID, index, text, token count)
        │
        ▼
-IngestionResult (Observability metrics: discovered, processed, chunks, skipped, failures)
+EmbeddingPurpose (DOCUMENT | QUERY)
+       │
+       ▼
+EmbeddingProvider (Interface)
+       │
+       ├─────────────────────────────────┐
+       ▼                                 ▼
+DummyEmbeddingProvider             GeminiEmbeddingProvider
+(Deterministic 768-dim offline)    (Java 17 HttpClient REST to gemini-embedding-001)
+       │                                 │
+       └────────────────┬────────────────┘
+                        ▼
+               VectorNormalizer (L2)
+                        │
+                        ▼
+                Embedding (Immutable L2-normalized 768-dim float vector)
 ```
 
 ## Core Abstractions & Rules
 
-### Supported Document Types
-- Supported extensions: `.md`, `.txt`
-- Encoding: UTF-8 (explicitly enforced)
-- Empty File Policy: Empty or whitespace-only files are skipped cleanly during ingestion.
-- Unsupported Extensions: Non-text/binary files are ignored.
+### Embedding Model & Provider Contract
+- **Provider**: Google Gemini API (`gemini`)
+- **Model Identifier**: `gemini-embedding-001`
+- **Output Dimensions**: 768
+- **Purpose Semantics**:
+  - Domain `DOCUMENT` maps to Gemini `RETRIEVAL_DOCUMENT` (for document/chunk indexing).
+  - Domain `QUERY` maps to Gemini `RETRIEVAL_QUERY` (for user search queries).
 
-### Identity and Hashing Strategy
-- **Document ID**: Calculated via `SHA-256(normalizedRelativePath)` relative to knowledge root. Absolute machine-specific directory paths are ignored to ensure cross-machine determinism.
-- **Content Hash**: Calculated via `SHA-256(utf8Content)` over raw document text.
-- **Chunk ID**: Calculated via `SHA-256(documentId + ":" + chunkIndex + ":" + chunkText)` canonical string format.
+### Vector Normalization
+- All generated vectors are L2-normalized: $v_{norm} = v / \|v\|_2$ where $\|v\|_2 = \sqrt{\sum v_i^2}$.
+- Zero or near-zero magnitude vectors are rejected explicitly without producing `NaN` or `Infinity`.
 
-### Chunking Configuration
+### API Key Security
+- Authentication relies exclusively on the `GEMINI_API_KEY` environment variable.
+- The API key is NEVER stored in `application.properties`, NEVER printed to standard output or logs, and NEVER committed to Git.
+
+### Configuration Properties
 Configured in `AppConfig` properties (or system environment variables):
-- `chunking.chunk-size`: 800 characters (default)
-- `chunking.chunk-overlap`: 100 characters (default)
+- `embedding.provider`: `gemini` (default)
+- `embedding.model`: `gemini-embedding-001` (default)
+- `embedding.dimensions`: `768` (default)
+- `embedding.timeout-seconds`: `30` (default)
 
 Validation rules enforced at configuration startup:
-- `chunkSize > 0`
-- `chunkOverlap >= 0`
-- `chunkOverlap < chunkSize`
-
-## Current Capabilities
-Stage 2 provides:
-- Recursive file loader (`DocumentLoader`) supporting nested directories.
-- Deterministic text chunker (`TextChunker`) with whitespace boundary lookback.
-- Ingestion service (`DocumentIngestionService`) producing `IngestionResult`.
-- CLI sub-command (`ingest`) for executing document processing.
-- Comprehensive unit test suite (29 tests) verifying loading, chunking, hashing, and configuration bounds.
+- `embeddingProvider == "gemini"`
+- `embeddingModel == "gemini-embedding-001"`
+- `embeddingDimensions == 768`
+- `embeddingTimeoutSeconds > 0`
 
 ## Maven Commands
 Execute commands from the project root (`projects/02-ide/maven-knowledge-lab/`):
@@ -75,9 +90,14 @@ Execute commands from the project root (`projects/02-ide/maven-knowledge-lab/`):
   .\mvnw.cmd clean validate
   ```
 
-- Run unit tests:
+- Run unit test suite (100% offline, zero network calls):
   ```cmd
   .\mvnw.cmd test
+  ```
+
+- Run opt-in live Gemini API integration test (requires `GEMINI_API_KEY`):
+  ```cmd
+  .\mvnw.cmd test -Dgemini.integration=true
   ```
 
 - Compile and package executable JAR:
@@ -90,9 +110,14 @@ Execute commands from the project root (`projects/02-ide/maven-knowledge-lab/`):
   .\mvnw.cmd dependency:tree
   ```
 
-- Execute document ingestion via JAR:
+- Execute document ingestion via CLI:
   ```cmd
   java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar ingest
+  ```
+
+- Execute embedding generation via CLI:
+  ```cmd
+  java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar embed "What is the Maven lifecycle?"
   ```
 
 - Execute standard application startup:
@@ -132,6 +157,14 @@ projects/02-ide/maven-knowledge-lab/
     │   │       │   ├── DocumentLoader.java
     │   │       │   ├── IngestionResult.java
     │   │       │   └── TextChunker.java
+    │   │       ├── embedding/
+    │   │       │   ├── DummyEmbeddingProvider.java
+    │   │       │   ├── Embedding.java
+    │   │       │   ├── EmbeddingException.java
+    │   │       │   ├── EmbeddingProvider.java
+    │   │       │   ├── EmbeddingPurpose.java
+    │   │       │   ├── GeminiEmbeddingProvider.java
+    │   │       │   └── VectorNormalizer.java
     │   │       ├── model/
     │   │       │   ├── Document.java
     │   │       │   ├── DocumentChunk.java
@@ -155,6 +188,12 @@ projects/02-ide/maven-knowledge-lab/
                 │   ├── DocumentIngestionServiceTest.java
                 │   ├── DocumentLoaderTest.java
                 │   └── TextChunkerTest.java
+                ├── embedding/
+                │   ├── DummyEmbeddingProviderTest.java
+                │   ├── EmbeddingNormalizationTest.java
+                │   ├── EmbeddingTest.java
+                │   ├── GeminiEmbeddingProviderTest.java
+                │   └── GeminiIntegrationTest.java
                 └── model/
                     └── DomainModelsTest.java
 ```

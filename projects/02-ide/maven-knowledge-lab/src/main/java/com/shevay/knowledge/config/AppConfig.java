@@ -5,7 +5,7 @@ import java.util.Properties;
 
 /**
  * Configuration holder for Maven Knowledge Lab.
- * Defines configuration properties with safe defaults and support for override loading.
+ * Defines configuration properties with safe defaults, strict bounds assertions, and support for override loading.
  */
 public final class AppConfig {
 
@@ -16,6 +16,11 @@ public final class AppConfig {
     public static final int DEFAULT_CHUNK_SIZE = 800;
     public static final int DEFAULT_CHUNK_OVERLAP = 100;
 
+    public static final String DEFAULT_EMBEDDING_PROVIDER = "gemini";
+    public static final String DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001";
+    public static final int DEFAULT_EMBEDDING_DIMENSIONS = 768;
+    public static final int DEFAULT_EMBEDDING_TIMEOUT_SECONDS = 30;
+
     private final String knowledgePath;
     private final String dataPath;
     private final int topK;
@@ -23,11 +28,23 @@ public final class AppConfig {
     private final int chunkSize;
     private final int chunkOverlap;
 
+    private final String embeddingProvider;
+    private final String embeddingModel;
+    private final int embeddingDimensions;
+    private final int embeddingTimeoutSeconds;
+
     public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity) {
         this(knowledgePath, dataPath, topK, minSimilarity, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP);
     }
 
     public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity, int chunkSize, int chunkOverlap) {
+        this(knowledgePath, dataPath, topK, minSimilarity, chunkSize, chunkOverlap,
+                DEFAULT_EMBEDDING_PROVIDER, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_TIMEOUT_SECONDS);
+    }
+
+    public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity,
+                     int chunkSize, int chunkOverlap,
+                     String embeddingProvider, String embeddingModel, int embeddingDimensions, int embeddingTimeoutSeconds) {
         this.knowledgePath = Objects.requireNonNull(knowledgePath, "knowledgePath must not be null");
         this.dataPath = Objects.requireNonNull(dataPath, "dataPath must not be null");
         if (topK <= 0) {
@@ -45,10 +62,33 @@ public final class AppConfig {
         if (chunkOverlap >= chunkSize) {
             throw new IllegalArgumentException("chunkOverlap (" + chunkOverlap + ") must be strictly less than chunkSize (" + chunkSize + ")");
         }
+
+        Objects.requireNonNull(embeddingProvider, "embeddingProvider must not be null");
+        if (!"gemini".equalsIgnoreCase(embeddingProvider.trim())) {
+            throw new IllegalArgumentException("Unsupported embedding provider: '" + embeddingProvider + "'. Only 'gemini' is supported in this phase.");
+        }
+
+        Objects.requireNonNull(embeddingModel, "embeddingModel must not be null");
+        if (!"gemini-embedding-001".equalsIgnoreCase(embeddingModel.trim())) {
+            throw new IllegalArgumentException("Unsupported embedding model: '" + embeddingModel + "'. Only 'gemini-embedding-001' is supported in this phase.");
+        }
+
+        if (embeddingDimensions != 768) {
+            throw new IllegalArgumentException("Unsupported embedding dimensions: " + embeddingDimensions + ". Only 768 is supported in this phase.");
+        }
+
+        if (embeddingTimeoutSeconds <= 0) {
+            throw new IllegalArgumentException("embeddingTimeoutSeconds must be positive (> 0), got: " + embeddingTimeoutSeconds);
+        }
+
         this.topK = topK;
         this.minSimilarity = minSimilarity;
         this.chunkSize = chunkSize;
         this.chunkOverlap = chunkOverlap;
+        this.embeddingProvider = embeddingProvider.trim().toLowerCase();
+        this.embeddingModel = embeddingModel.trim().toLowerCase();
+        this.embeddingDimensions = embeddingDimensions;
+        this.embeddingTimeoutSeconds = embeddingTimeoutSeconds;
     }
 
     /**
@@ -75,7 +115,12 @@ public final class AppConfig {
         int cSize = parseIntOrDefault(getPropertyOrEnv(props, "chunking.chunk-size", "CHUNKING_CHUNK_SIZE", null), DEFAULT_CHUNK_SIZE);
         int cOverlap = parseIntOrDefault(getPropertyOrEnv(props, "chunking.chunk-overlap", "CHUNKING_CHUNK_OVERLAP", null), DEFAULT_CHUNK_OVERLAP);
 
-        return new AppConfig(kPath, dPath, k, minSim, cSize, cOverlap);
+        String embProvider = getPropertyOrEnv(props, "embedding.provider", "EMBEDDING_PROVIDER", DEFAULT_EMBEDDING_PROVIDER);
+        String embModel = getPropertyOrEnv(props, "embedding.model", "EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL);
+        int embDimensions = parseIntOrDefault(getPropertyOrEnv(props, "embedding.dimensions", "EMBEDDING_DIMENSIONS", null), DEFAULT_EMBEDDING_DIMENSIONS);
+        int embTimeout = parseIntOrDefault(getPropertyOrEnv(props, "embedding.timeout-seconds", "EMBEDDING_TIMEOUT_SECONDS", null), DEFAULT_EMBEDDING_TIMEOUT_SECONDS);
+
+        return new AppConfig(kPath, dPath, k, minSim, cSize, cOverlap, embProvider, embModel, embDimensions, embTimeout);
     }
 
     private static String getPropertyOrEnv(Properties props, String propKey, String envKey, String defaultValue) {
@@ -139,6 +184,32 @@ public final class AppConfig {
         return chunkOverlap;
     }
 
+    public String getEmbeddingProvider() {
+        return embeddingProvider;
+    }
+
+    public String getEmbeddingModel() {
+        return embeddingModel;
+    }
+
+    public int getEmbeddingDimensions() {
+        return embeddingDimensions;
+    }
+
+    public int getEmbeddingTimeoutSeconds() {
+        return embeddingTimeoutSeconds;
+    }
+
+    /**
+     * Reads GEMINI_API_KEY environment variable.
+     * NEVER prints, logs, or exposes the API key.
+     *
+     * @return API key string or null if not set
+     */
+    public String getGeminiApiKey() {
+        return System.getenv("GEMINI_API_KEY");
+    }
+
     @Override
     public String toString() {
         return "AppConfig{" +
@@ -148,6 +219,10 @@ public final class AppConfig {
                 ", retrieval.min-similarity=" + minSimilarity +
                 ", chunking.chunk-size=" + chunkSize +
                 ", chunking.chunk-overlap=" + chunkOverlap +
+                ", embedding.provider='" + embeddingProvider + '\'' +
+                ", embedding.model='" + embeddingModel + '\'' +
+                ", embedding.dimensions=" + embeddingDimensions +
+                ", embedding.timeout-seconds=" + embeddingTimeoutSeconds +
                 '}';
     }
 
@@ -160,12 +235,17 @@ public final class AppConfig {
                 Double.compare(appConfig.minSimilarity, minSimilarity) == 0 &&
                 chunkSize == appConfig.chunkSize &&
                 chunkOverlap == appConfig.chunkOverlap &&
+                embeddingDimensions == appConfig.embeddingDimensions &&
+                embeddingTimeoutSeconds == appConfig.embeddingTimeoutSeconds &&
                 Objects.equals(knowledgePath, appConfig.knowledgePath) &&
-                Objects.equals(dataPath, appConfig.dataPath);
+                Objects.equals(dataPath, appConfig.dataPath) &&
+                Objects.equals(embeddingProvider, appConfig.embeddingProvider) &&
+                Objects.equals(embeddingModel, appConfig.embeddingModel);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(knowledgePath, dataPath, topK, minSimilarity, chunkSize, chunkOverlap);
+        return Objects.hash(knowledgePath, dataPath, topK, minSimilarity, chunkSize, chunkOverlap,
+                embeddingProvider, embeddingModel, embeddingDimensions, embeddingTimeoutSeconds);
     }
 }
