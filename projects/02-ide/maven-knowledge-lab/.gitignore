@@ -13,3 +13,7 @@ target/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Generated data files
+data/vectors.dat
+*.dat

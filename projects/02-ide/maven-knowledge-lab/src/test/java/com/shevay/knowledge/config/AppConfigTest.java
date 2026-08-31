@@ -10,11 +10,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class AppConfigTest {
 
     @Test
-    @DisplayName("Should load default configuration values including Phase 3 embedding settings")
+    @DisplayName("Should load default configuration values including Phase 3 & 4 settings")
     void testLoadDefaults() {
         AppConfig config = AppConfig.loadDefaults();
         assertEquals(AppConfig.DEFAULT_KNOWLEDGE_PATH, config.getKnowledgePath());
         assertEquals(AppConfig.DEFAULT_DATA_PATH, config.getDataPath());
+        assertEquals(AppConfig.DEFAULT_VECTOR_STORE_PATH, config.getVectorStorePath());
         assertEquals(AppConfig.DEFAULT_TOP_K, config.getTopK());
         assertEquals(AppConfig.DEFAULT_MIN_SIMILARITY, config.getMinSimilarity());
         assertEquals("gemini", config.getEmbeddingProvider());
@@ -29,6 +30,7 @@ class AppConfigTest {
         Properties props = new Properties();
         props.setProperty("knowledge.path", "custom/knowledge");
         props.setProperty("data.path", "custom/data");
+        props.setProperty("vector.store.path", "custom/vectors.dat");
         props.setProperty("retrieval.top-k", "10");
         props.setProperty("retrieval.min-similarity", "0.85");
         props.setProperty("embedding.provider", "gemini");
@@ -39,6 +41,7 @@ class AppConfigTest {
         AppConfig config = AppConfig.loadFromProperties(props);
         assertEquals("custom/knowledge", config.getKnowledgePath());
         assertEquals("custom/data", config.getDataPath());
+        assertEquals("custom/vectors.dat", config.getVectorStorePath());
         assertEquals(10, config.getTopK());
         assertEquals(0.85, config.getMinSimilarity());
         assertEquals("gemini", config.getEmbeddingProvider());
@@ -74,19 +77,19 @@ class AppConfigTest {
     void testEmbeddingConfigValidations() {
         // Invalid provider
         assertThrows(IllegalArgumentException.class, () ->
-                new AppConfig("k", "d", 3, 0.7, 800, 100, "openai", "gemini-embedding-001", 768, 30));
+                new AppConfig("k", "d", "v.dat", 3, 0.7, 800, 100, "openai", "gemini-embedding-001", 768, 30));
 
         // Invalid model
         assertThrows(IllegalArgumentException.class, () ->
-                new AppConfig("k", "d", 3, 0.7, 800, 100, "gemini", "text-embedding-004", 768, 30));
+                new AppConfig("k", "d", "v.dat", 3, 0.7, 800, 100, "gemini", "text-embedding-004", 768, 30));
 
         // Invalid dimensions
         assertThrows(IllegalArgumentException.class, () ->
-                new AppConfig("k", "d", 3, 0.7, 800, 100, "gemini", "gemini-embedding-001", 1536, 30));
+                new AppConfig("k", "d", "v.dat", 3, 0.7, 800, 100, "gemini", "gemini-embedding-001", 1536, 30));
 
         // Invalid timeout
         assertThrows(IllegalArgumentException.class, () ->
-                new AppConfig("k", "d", 3, 0.7, 800, 100, "gemini", "gemini-embedding-001", 768, 0));
+                new AppConfig("k", "d", "v.dat", 3, 0.7, 800, 100, "gemini", "gemini-embedding-001", 768, 0));
     }
 
     @Test
@@ -98,6 +101,6 @@ class AppConfigTest {
         assertEquals(config1, config2);
         assertEquals(config1.hashCode(), config2.hashCode());
         assertTrue(config1.toString().contains("kPath"));
-        assertTrue(config1.toString().contains("gemini-embedding-001"));
+        assertTrue(config1.toString().contains("vectors.dat"));
     }
 }

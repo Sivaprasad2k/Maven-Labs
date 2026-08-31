@@ -11,6 +11,7 @@ public final class AppConfig {
 
     public static final String DEFAULT_KNOWLEDGE_PATH = "knowledge";
     public static final String DEFAULT_DATA_PATH = "data";
+    public static final String DEFAULT_VECTOR_STORE_PATH = "data/vectors.dat";
     public static final int DEFAULT_TOP_K = 3;
     public static final double DEFAULT_MIN_SIMILARITY = 0.7;
     public static final int DEFAULT_CHUNK_SIZE = 800;
@@ -23,6 +24,7 @@ public final class AppConfig {
 
     private final String knowledgePath;
     private final String dataPath;
+    private final String vectorStorePath;
     private final int topK;
     private final double minSimilarity;
     private final int chunkSize;
@@ -34,19 +36,26 @@ public final class AppConfig {
     private final int embeddingTimeoutSeconds;
 
     public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity) {
-        this(knowledgePath, dataPath, topK, minSimilarity, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP);
+        this(knowledgePath, dataPath, DEFAULT_VECTOR_STORE_PATH, topK, minSimilarity, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP);
     }
 
     public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity, int chunkSize, int chunkOverlap) {
-        this(knowledgePath, dataPath, topK, minSimilarity, chunkSize, chunkOverlap,
+        this(knowledgePath, dataPath, DEFAULT_VECTOR_STORE_PATH, topK, minSimilarity, chunkSize, chunkOverlap,
                 DEFAULT_EMBEDDING_PROVIDER, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_TIMEOUT_SECONDS);
     }
 
-    public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity,
+    public AppConfig(String knowledgePath, String dataPath, String vectorStorePath, int topK, double minSimilarity,
+                     int chunkSize, int chunkOverlap) {
+        this(knowledgePath, dataPath, vectorStorePath, topK, minSimilarity, chunkSize, chunkOverlap,
+                DEFAULT_EMBEDDING_PROVIDER, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_TIMEOUT_SECONDS);
+    }
+
+    public AppConfig(String knowledgePath, String dataPath, String vectorStorePath, int topK, double minSimilarity,
                      int chunkSize, int chunkOverlap,
                      String embeddingProvider, String embeddingModel, int embeddingDimensions, int embeddingTimeoutSeconds) {
         this.knowledgePath = Objects.requireNonNull(knowledgePath, "knowledgePath must not be null");
         this.dataPath = Objects.requireNonNull(dataPath, "dataPath must not be null");
+        this.vectorStorePath = Objects.requireNonNull(vectorStorePath, "vectorStorePath must not be null");
         if (topK <= 0) {
             throw new IllegalArgumentException("topK must be positive, got: " + topK);
         }
@@ -110,6 +119,7 @@ public final class AppConfig {
     public static AppConfig loadFromProperties(Properties props) {
         String kPath = getPropertyOrEnv(props, "knowledge.path", "KNOWLEDGE_PATH", DEFAULT_KNOWLEDGE_PATH);
         String dPath = getPropertyOrEnv(props, "data.path", "DATA_PATH", DEFAULT_DATA_PATH);
+        String vPath = getPropertyOrEnv(props, "vector.store.path", "VECTOR_STORE_PATH", DEFAULT_VECTOR_STORE_PATH);
         int k = parseIntOrDefault(getPropertyOrEnv(props, "retrieval.top-k", "RETRIEVAL_TOP_K", null), DEFAULT_TOP_K);
         double minSim = parseDoubleOrDefault(getPropertyOrEnv(props, "retrieval.min-similarity", "RETRIEVAL_MIN_SIMILARITY", null), DEFAULT_MIN_SIMILARITY);
         int cSize = parseIntOrDefault(getPropertyOrEnv(props, "chunking.chunk-size", "CHUNKING_CHUNK_SIZE", null), DEFAULT_CHUNK_SIZE);
@@ -120,7 +130,7 @@ public final class AppConfig {
         int embDimensions = parseIntOrDefault(getPropertyOrEnv(props, "embedding.dimensions", "EMBEDDING_DIMENSIONS", null), DEFAULT_EMBEDDING_DIMENSIONS);
         int embTimeout = parseIntOrDefault(getPropertyOrEnv(props, "embedding.timeout-seconds", "EMBEDDING_TIMEOUT_SECONDS", null), DEFAULT_EMBEDDING_TIMEOUT_SECONDS);
 
-        return new AppConfig(kPath, dPath, k, minSim, cSize, cOverlap, embProvider, embModel, embDimensions, embTimeout);
+        return new AppConfig(kPath, dPath, vPath, k, minSim, cSize, cOverlap, embProvider, embModel, embDimensions, embTimeout);
     }
 
     private static String getPropertyOrEnv(Properties props, String propKey, String envKey, String defaultValue) {
@@ -166,6 +176,10 @@ public final class AppConfig {
 
     public String getDataPath() {
         return dataPath;
+    }
+
+    public String getVectorStorePath() {
+        return vectorStorePath;
     }
 
     public int getTopK() {
@@ -215,6 +229,7 @@ public final class AppConfig {
         return "AppConfig{" +
                 "knowledge.path='" + knowledgePath + '\'' +
                 ", data.path='" + dataPath + '\'' +
+                ", vector.store.path='" + vectorStorePath + '\'' +
                 ", retrieval.top-k=" + topK +
                 ", retrieval.min-similarity=" + minSimilarity +
                 ", chunking.chunk-size=" + chunkSize +
@@ -239,13 +254,14 @@ public final class AppConfig {
                 embeddingTimeoutSeconds == appConfig.embeddingTimeoutSeconds &&
                 Objects.equals(knowledgePath, appConfig.knowledgePath) &&
                 Objects.equals(dataPath, appConfig.dataPath) &&
+                Objects.equals(vectorStorePath, appConfig.vectorStorePath) &&
                 Objects.equals(embeddingProvider, appConfig.embeddingProvider) &&
                 Objects.equals(embeddingModel, appConfig.embeddingModel);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(knowledgePath, dataPath, topK, minSimilarity, chunkSize, chunkOverlap,
+        return Objects.hash(knowledgePath, dataPath, vectorStorePath, topK, minSimilarity, chunkSize, chunkOverlap,
                 embeddingProvider, embeddingModel, embeddingDimensions, embeddingTimeoutSeconds);
     }
 }
