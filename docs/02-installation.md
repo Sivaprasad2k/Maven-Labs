@@ -23,7 +23,7 @@ OpenJDK 64-Bit Server VM Temurin-17.0.17+10 (build 17.0.17+10, mixed mode, shari
 
 ## 1. Installing Maven CLI on Windows (Optional)
 
-> **Note**: **AWS EC2** (`projects/01-aws-ec2`) is our primary cloud execution environment and **IntelliJ IDEA** (`projects/02-intellij`) is our primary IDE development environment. Installing local Maven CLI is optional but recommended if you wish to run `mvn` commands directly from local terminals.
+> **Note**: **AWS EC2** (`projects/01-aws-ec2`) is our primary cloud execution environment and **IDE** (`projects/02-ide`) is our primary IDE development environment. Installing local Maven CLI is optional but recommended if you wish to run `mvn` commands directly from local terminals.
 
 ### Step 1: Download Maven
 Download the binary zip archive from `https://maven.apache.org/download.cgi` (e.g., `apache-maven-3.9.x-bin.zip`).

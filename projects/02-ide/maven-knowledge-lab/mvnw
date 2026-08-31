@@ -1,0 +1,46 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Apache Maven Wrapper startup script
+# ----------------------------------------------------------------------------
+
+PRG="$0"
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+DIR=`dirname "$PRG"`
+WRAPPER_PROPERTIES="$DIR/.mvn/wrapper/maven-wrapper.properties"
+
+if [ ! -f "$WRAPPER_PROPERTIES" ]; then
+  echo "Error: Could not find $WRAPPER_PROPERTIES"
+  exit 1
+fi
+
+MAVEN_URL=$(grep "^distributionUrl=" "$WRAPPER_PROPERTIES" | cut -d= -f2)
+MAVEN_ZIP=$(basename "$MAVEN_URL")
+MAVEN_DIR_NAME=$(echo "$MAVEN_ZIP" | sed 's/-bin\.zip//')
+
+MAVEN_USER_HOME="${HOME}/.m2"
+WRAPPER_HOME="${MAVEN_USER_HOME}/wrapper/dists/${MAVEN_DIR_NAME}"
+MAVEN_HOME="${WRAPPER_HOME}/${MAVEN_DIR_NAME}"
+
+if [ ! -f "${MAVEN_HOME}/bin/mvn" ]; then
+  mkdir -p "${WRAPPER_HOME}"
+  echo "Downloading Maven from ${MAVEN_URL}..."
+  curl -fsSL "${MAVEN_URL}" -o "${WRAPPER_HOME}/${MAVEN_ZIP}" || wget -q "${MAVEN_URL}" -O "${WRAPPER_HOME}/${MAVEN_ZIP}"
+  unzip -q "${WRAPPER_HOME}/${MAVEN_ZIP}" -d "${WRAPPER_HOME}"
+  rm -f "${WRAPPER_HOME}/${MAVEN_ZIP}"
+fi
+
+MAVEN_CMD="${MAVEN_HOME}/bin/mvn"
+if [ ! -f "$MAVEN_CMD" ]; then
+  MAVEN_CMD=$(find "${WRAPPER_HOME}" -maxdepth 2 -name mvn -type f | head -n 1)
+fi
+
+exec "$MAVEN_CMD" "$@"

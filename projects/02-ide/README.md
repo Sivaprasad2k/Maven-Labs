@@ -10,7 +10,7 @@ This guide documents creating and managing Apache Maven projects inside **Intell
 2. Select **Maven** from the left-hand menu.
 3. Configure project settings:
    - **Name**: `simple-maven-project`
-   - **Location**: `e:\Maven\projects\02-intellij\simple-maven-project`
+   - **Location**: `e:\Maven\projects\02-ide\simple-maven-project`
    - **JDK**: Select **17** (e.g., Temurin 17 or Oracle OpenJDK 17).
    - **GroupId**: `com.mycompany.app`
    - **ArtifactId**: `simple-maven-project`

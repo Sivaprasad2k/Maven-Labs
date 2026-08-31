@@ -15,7 +15,7 @@ Maven Core Concepts (docs/)
        ↓
 AWS EC2 Projects (projects/01-aws-ec2/)
        ↓
-IntelliJ IDEA Workflow (projects/02-intellij/)
+IDE Environment Workflow (projects/02-ide/)
        ↓
 Advanced Build Architectures (Multi-module, CI/CD, Distribution)
 ```
@@ -63,7 +63,7 @@ Maven-Labs/
     ├── 01-aws-ec2/           # AWS EC2 Linux cloud laboratory
     │   ├── ec2-system-monitor/ # Java 17 zero-framework system monitoring service
     │   └── maven-release-lab/  # Maven profiles, resource filtering & release lab
-    └── 02-intellij/          # IntelliJ IDEA Maven IDE integration laboratory
+    └── 02-ide/               # IDE environment Maven integration laboratory
 ```
 
 ---
@@ -87,7 +87,7 @@ A dedicated laboratory making Maven build-time mechanisms observable at runtime.
 - [05 - Maven Lifecycles and Phases](docs/05-maven-lifecycle.md)
 - [Troubleshooting Reference](docs/troubleshooting.md)
 - [AWS EC2 Laboratory Guide](projects/01-aws-ec2/README.md)
-- [IntelliJ IDEA Integration Guide](projects/02-intellij/README.md)
+- [IDE Integration Guide](projects/02-ide/README.md)
 
 ---
 
