@@ -1,130 +1,127 @@
 # Maven Knowledge Lab
 
 ## Project Purpose
-Maven Knowledge Lab is a Java 17 CLI-based Retrieval-Augmented Generation (RAG) learning system designed to demonstrate end-to-end document processing, vector embeddings, local vector storage, exact similarity retrieval, context construction, and LLM-assisted question answering over local knowledge repositories.
+Maven Knowledge Lab is a Java 17 Retrieval-Augmented Generation (RAG) learning system designed to demonstrate end-to-end document processing, vector embeddings, local vector storage, exact similarity retrieval, context construction, LLM-assisted answer generation, and Jakarta Servlet web deployment over local knowledge repositories.
 
 ## Current Implementation Stage
-Current Status: Phase 4 - Persistent Vector Store and Similarity Retrieval
+Current Status: Phase 6 - Servlet Web Interface
 
-Phase 4 implements a persistent, provider-independent vector storage layer (`FileVectorStore`), explicit binary format (`data/vectors.dat`), append-only persistence with startup index reconstruction (`Map<String, Long>`), exact linear cosine similarity search (`CosineSimilarity`), threshold filtering, Top-K ranking with deterministic tie-breaking (`SimilaritySearchService`), CLI indexing and search sub-commands (`index`, `search`), and a comprehensive offline test suite.
-
-EXPLICIT STATEMENT: Natural language LLM answer generation (Phase 5-8), prompt construction, and conversational RAG orchestration ARE NOT IMPLEMENTED YET IN PHASE 4. `RetrievedChunk` results represent the final boundary of Phase 4.
+Phase 6 introduces a thin Jakarta Servlet 6.0 web layer running inside Apache Tomcat. It exposes the core RAG application pipeline over HTTP while maintaining complete separation between the web adapter and application core. The application packages as a WAR artifact (`target/maven-knowledge-lab-1.0-SNAPSHOT.war`) and retains full backwards-compatible CLI operation.
 
 ## System Architecture
-The Phase 1 through Phase 4 pipeline operates as follows:
+The complete system operates as an integrated pipeline across six phases:
+
 ```text
-knowledge/ Directory
-       │
-       ▼
-DocumentLoader (Recursive discovery, UTF-8 reading, .md/.txt filtering)
-       │
-       ▼
-Document (SHA-256 relative path ID, SHA-256 content hash, title, metadata)
-       │
-       ▼
-TextChunker (Deterministic character windowing, configurable size & overlap)
-       │
-       ▼
-DocumentChunk (SHA-256 canonical chunk ID, index, text, token count)
-       │
-       ▼
-EmbeddingPurpose (DOCUMENT | QUERY)
-       │
-       ▼
-EmbeddingProvider (Interface: GeminiEmbeddingProvider | DummyEmbeddingProvider)
-       │
-       ▼
-Embedding (Immutable L2-normalized 768-dim float vector)
-       │
-       ▼
-VectorRecord (id, chunkId, documentId, sourcePath, chunkIndex, text, tokenCount, vector, dimensions)
-       │
-       ▼
-VectorStore (FileVectorStore: binary data/vectors.dat + runtime Map<String, Long> offset index)
-       │
-       ▼
-CosineSimilarity (Pure double-precision dot product over L2-normalized vectors)
-       │
-       ▼
-SimilaritySearchService (Linear search, min-similarity cutoff, Top-K ranking, deterministic tie-breaking)
-       │
-       ▼
-RetrievedChunk (DocumentChunk + similarityScore)
+HTTP Request (POST /api/rag/query)  │  CLI Command (java -jar ... rag "<query>")
+                    │                                 │
+                    ▼                                 ▼
+             RagServlet (Web Adapter)       Application (CLI Adapter)
+                    │                                 │
+                    └─────────────────┬───────────────┘
+                                      ▼
+                                  RagService (Application Core Orchestrator)
+                                      │
+               ┌──────────────────────┴──────────────────────┐
+               ▼                                             ▼
+    SimilaritySearchService                        ContextAssembler & PromptBuilder
+               │                                             │
+               ▼                                             ▼
+    FileVectorStore (data/vectors.dat)             LlmGenerationProvider (Gemini REST API)
+               │                                             │
+               ▼                                             ▼
+    RetrievedChunk[]                               Generated Answer String
+               └──────────────────────┬──────────────────────┘
+                                      ▼
+                                 RagResponse (JSON / Console Output)
 ```
 
-## Binary Storage Format (`data/vectors.dat`)
+## Web Layer Architecture & Endpoints
 
-The `FileVectorStore` uses an explicit, deterministic binary layout built with standard Java `DataOutputStream` / `DataInputStream` primitive encodings:
+### 1. Application Dependency Bootstrap (`WebContextListener`)
+Uses `@WebListener` to implement `ServletContextListener`. Initializes `AppConfig`, `EmbeddingProvider`, `FileVectorStore`, `SimilaritySearchService`, `GeminiGenerationProvider`, and `RagService` once during Tomcat container startup, binding shared singletons to the `ServletContext`.
 
-### Header Layout (12 bytes)
-| Field | Type | Size | Description |
-| :--- | :--- | :--- | :--- |
-| Magic Identifier | `int` | 4 bytes | `0x4D4B4C56` (`"MKLV"` in ASCII) |
-| Format Version | `int` | 4 bytes | `1` |
-| Vector Dimensions | `int` | 4 bytes | `768` (Configured vector length) |
+### 2. Health Endpoint (`HealthServlet`)
+- **Mapping**: `GET /api/health`
+- **Response Code**: `200 OK`
+- **Content-Type**: `application/json; charset=UTF-8`
+- **Response Body**:
+  ```json
+  {
+    "status": "UP"
+  }
+  ```
 
-### Record Framing Layout (Append-Only)
-| Field | Type | Size | Description |
-| :--- | :--- | :--- | :--- |
-| Record Payload Length | `int` | 4 bytes | Byte count of payload following length |
-| Vector ID | `UTF-8 String` | Variable | Unique vector record identifier (`"vec-" + chunkId`) |
-| Chunk ID | `UTF-8 String` | Variable | SHA-256 chunk identifier |
-| Document ID | `UTF-8 String` | Variable | SHA-256 document identifier |
-| Source Path | `UTF-8 String` | Variable | Relative file path |
-| Chunk Index | `int` | 4 bytes | Zero-based chunk index in document |
-| Chunk Text | `UTF-8 String` | Variable | Raw chunk text content |
-| Token Count | `int` | 4 bytes | Estimated token count |
-| Vector Length | `int` | 4 bytes | Vector array length (`768`) |
-| Vector Float Values | `float[]` | `dimensions * 4` bytes | Float array of normalized embedding values |
+### 3. RAG Query Endpoint (`RagServlet`)
+- **Mapping**: `POST /api/rag/query`
+- **Content-Type**: `application/json`
+- **Request Payload (`RagQueryRequest`)**:
+  ```json
+  {
+    "query": "What is the Maven build lifecycle?"
+  }
+  ```
+- **Success Response Code**: `200 OK`
+- **Response Body (`RagResponse`)**:
+  ```json
+  {
+    "query": "What is the Maven build lifecycle?",
+    "generatedAnswer": "The Maven build lifecycle is a defined sequence of phases...",
+    "retrievedChunks": [
+      {
+        "chunk": {
+          "id": "3276a633...",
+          "documentId": "doc1",
+          "sourcePath": "knowledge/maven/lifecycle.md",
+          "chunkIndex": 0,
+          "text": "The build lifecycle consists of validate, compile, test, package...",
+          "contentLength": 120,
+          "tokenCount": 20
+        },
+        "similarityScore": 0.8542
+      }
+    ],
+    "sources": [
+      {
+        "documentId": "doc1",
+        "sourcePath": "knowledge/maven/lifecycle.md",
+        "snippet": "The build lifecycle consists of validate, compile, test, package...",
+        "relevanceScore": 0.8542
+      }
+    ]
+  }
+  ```
 
-## Core Components & Mechanics
+### 4. HTTP Error Status Code Mapping
 
-### VectorStore Abstraction
-`VectorStore` provides a provider-independent persistence contract:
-- `save(VectorRecord)`: Appends record to binary storage and updates runtime offset index.
-- `saveAll(List<VectorRecord>)`: Batch save of vector records.
-- `findById(String id)`: Looks up byte offset in runtime index and seeks to read exact record.
-- `findAll()`: Returns all active authoritative `VectorRecord` objects in offset order.
-- `size()`: Returns distinct active vector record count.
-- `clear()`: Overwrites binary file with header and resets runtime index.
+| Scenario | HTTP Status | Response JSON Body |
+| :--- | :--- | :--- |
+| Missing request body | `400 Bad Request` | `{"error": "Request body is required"}` |
+| Missing query field (`{}`) | `400 Bad Request` | `{"error": "Query field must not be null"}` |
+| Null query (`{"query": null}`) | `400 Bad Request` | `{"error": "Query field must not be null"}` |
+| Blank query (`{"query": "   "}`) | `400 Bad Request` | `{"error": "Query must not be blank"}` |
+| Malformed JSON syntax | `400 Bad Request` | `{"error": "Malformed JSON request"}` |
+| Unsupported HTTP method (`GET`, `PUT`) | `405 Method Not Allowed` | `{"error": "Method Not Allowed"}` |
+| Non-existent URL path | `404 Not Found` | Container 404 response |
+| Internal / LLM service error | `500 Internal Server Error` | `{"error": "Sanitized error message"}` |
 
-### Startup Index Reconstruction
-At application startup, `FileVectorStore` validates the 12-byte header (`MKLV` magic, version `1`, dimensions `768`), then performs a single sequential scan from byte offset 12 to EOF. It constructs an in-memory `Map<String, Long>` (`vectorId -> fileOffset`).
+### 5. Security & Isolation Guarantee
+- **Credential Protection**: `GEMINI_API_KEY` is transmitted solely via `x-goog-api-key` HTTP header and is never logged, written to properties, exposed in URL parameters, or included in error JSON.
+- **Error Sanitization**: Error responses return sanitized JSON error messages and never expose raw stack traces, API keys, or internal filesystem paths to HTTP clients.
+- **Thread Safety**: Servlets remain completely stateless; no request-specific state is stored in Servlet instance fields.
 
-### Append-Only & Upsert Semantics
-When updating an existing vector ID, the store appends a new record payload to the end of `vectors.dat` and updates the runtime index entry to point to the newest byte offset. Historical records remain physically untouched, guaranteeing append-only write performance without full-file rewrites.
+## Core Components & Pipeline
 
-### Cosine Similarity & Numeric Precision
-`CosineSimilarity` computes:
-$$\text{cos}(A, B) = \frac{A \cdot B}{\|A\|_2 \|B\|_2}$$
-Accumulation uses `double` precision to eliminate float rounding errors. Null inputs, dimension mismatches, non-finite float values (`NaN`, `Infinity`), and zero-magnitude vectors ($< 10^{-12}$) are strictly rejected with explicit exceptions.
-
-### Deterministic Top-K Ranking
-`SimilaritySearchService` evaluates stored vectors against the query vector:
-1. Calculates similarity score for all candidates.
-2. Filters out candidates below `minSimilarity` threshold (default `0.70`).
-3. Sorts candidates by `similarityScore` descending.
-4. Breaks ties deterministically by `chunkId` ascending.
-5. Truncates results to `topK` (default `3`).
-
-## Engineering Decisions
-
-1. **Why append-only storage?** Append operations require $O(1)$ disk writes without full-file rewrites or complex free-list page management.
-2. **Why binary format rather than Java object serialization?** Native Java serialization (`ObjectOutputStream`) is slow, non-portable, unsafe, and brittle across JVM versions. The explicit binary format is self-describing, versioned, and deterministic.
-3. **Why runtime HashMap index?** For small to medium local knowledge corpora ($< 100,000$ vectors), an in-memory byte-offset index provides fast $O(1)$ lookup while keeping disk storage as the single source of truth.
-4. **Why rebuild index at startup?** Rebuilding the index from the append log avoids dual-write consistency issues between a data file and a separate index file.
-5. **Why no persistent index on disk?** A separate persistent index adds complexity without benefit for local laboratory scale.
-6. **Why exact linear search?** $O(N \times D)$ exact linear search guarantees 100% recall accuracy. Understanding exact retrieval mechanics is required before studying approximate algorithms.
-7. **Why no HNSW/FAISS?** Graph-based (HNSW) or inverted index (IVF) approximate nearest neighbor algorithms introduce complex hyperparameter tuning and approximate recall trade-offs unnecessary for local corpora.
-8. **Why no PostgreSQL/pgVector?** Keeping Phase 4 in pure Java 17 eliminates external server, Docker, database setup, and credential overhead.
-9. **Why VectorStore is independent of EmbeddingProvider?** Complete decoupling guarantees vector storage can consume embeddings from Gemini, Voyage, OpenAI, Cohere, or local models without modifying storage logic.
-10. **Why physical deletion is not implemented?** Physical deletion requires file compaction. Append-only upsert semantics meet Phase 4 requirements without compaction overhead.
-11. **Why upsert creates a newer physical record?** Appending new record versions preserves append-only write simplicity while updating the runtime offset index to point to the newest record.
-12. **Why dimensions are strictly validated?** Mixing vectors of different dimensions (e.g. 384 vs 768) produces invalid mathematical dot products. Strict validation prevents silent corruption.
+1. **Document Ingestion (`DocumentLoader`, `TextChunker`)**: Discovers Markdown/Text files, computes SHA-256 relative path IDs and content hashes, and chunks text deterministically with configurable window size and overlap.
+2. **Vector Embeddings (`GeminiEmbeddingProvider`, `DummyEmbeddingProvider`)**: Generates L2-normalized 768-dimensional float vectors via Gemini REST API (`gemini-embedding-001`) or deterministic offline hashing.
+3. **Vector Persistence (`FileVectorStore`)**: Appends records to custom binary file (`data/vectors.dat`) with magic header `0x4D4B4C56` (`MKLV`), rebuilding a memory offset index (`Map<String, Long>`) on startup.
+4. **Similarity Retrieval (`SimilaritySearchService`, `CosineSimilarity`)**: Executes double-precision linear cosine similarity search with score threshold filtering (`0.7`) and deterministic tie-breaking.
+5. **Context Assembly (`ContextAssembler`)**: Formats retrieved chunks into delimited, source-attributed context blocks.
+6. **Grounded Prompting (`PromptBuilder`)**: Constructs deterministic system prompts instructing the LLM to answer strictly using supplied context and avoid inventing facts.
+7. **RAG Orchestration (`RagService`)**: Combines embedding, search, context formatting, LLM generation, and source attribution into an immutable `RagResponse`. Short-circuits immediately when zero chunks qualify without calling the LLM.
 
 ## Configuration Properties
 
-Configured in `AppConfig` properties or environment variables:
+Configured via property files, JVM system properties, or environment variables:
 - `knowledge.path`: `knowledge` (default)
 - `data.path`: `data` (default)
 - `vector.store.path`: `data/vectors.dat` (default)
@@ -134,44 +131,59 @@ Configured in `AppConfig` properties or environment variables:
 - `embedding.model`: `gemini-embedding-001` (default)
 - `embedding.dimensions`: `768` (default)
 - `embedding.timeout-seconds`: `30` (default)
+- `generation.provider`: `gemini` (default)
+- `generation.model`: `gemini-1.5-flash` (default)
+- `generation.timeout-seconds`: `30` (default)
 
-## Maven & CLI Commands
+## Build, Test & Deployment Instructions
 
-Execute commands from the project directory (`projects/02-ide/maven-knowledge-lab/`):
+### Automated Tests
+Run full offline unit and web test suite (119 total tests):
+```cmd
+.\mvnw.cmd clean test
+```
 
-- Validate project structure:
-  ```cmd
-  .\mvnw.cmd clean validate
-  ```
+Run opt-in live Gemini API integration test (requires `GEMINI_API_KEY`):
+```cmd
+.\mvnw.cmd test -Dgemini.integration=true
+```
 
-- Run full offline test suite (79 total tests):
-  ```cmd
-  .\mvnw.cmd test
-  ```
+### Packaging WAR Artifact
+Build production WAR artifact:
+```cmd
+.\mvnw.cmd clean package
+```
+Output artifact location: `target/maven-knowledge-lab-1.0-SNAPSHOT.war`
 
-- Run opt-in live Gemini API integration test (requires `GEMINI_API_KEY`):
-  ```cmd
-  .\mvnw.cmd test -Dgemini.integration=true
-  ```
+### Tomcat Deployment
+1. Copy `target/maven-knowledge-lab-1.0-SNAPSHOT.war` into Apache Tomcat's `webapps/` directory.
+2. Start Tomcat (`bin/startup.bat` or `bin/catalina.bat run`).
+3. Access endpoints under context path `/maven-knowledge-lab-1.0-SNAPSHOT`:
+   - `http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/api/health`
+   - `http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/api/rag/query`
 
-- Compile and package executable JAR:
-  ```cmd
-  .\mvnw.cmd package
-  ```
+### Testing Endpoints via Curl
 
-- Execute vector indexing CLI:
+#### Health Check:
+```bash
+curl -X GET http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/api/health
+```
+
+#### RAG Query:
+```bash
+curl -X POST http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/api/rag/query \
+     -H "Content-Type: application/json" \
+     -d '{"query": "What is the Maven build lifecycle?"}'
+```
+
+### CLI Execution (Preserved Interface)
+- Index documents into vector store:
   ```cmd
   java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar index
   ```
-
-- Execute exact similarity search CLI:
+- Run RAG query via CLI:
   ```cmd
-  java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar search "What is the Maven build lifecycle?"
-  ```
-
-- Print standard application information:
-  ```cmd
-  java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar
+  java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar rag "What is the Maven build lifecycle?"
   ```
 
 ## Project Structure
@@ -215,6 +227,14 @@ projects/02-ide/maven-knowledge-lab/
     │   │       │   ├── EmbeddingPurpose.java
     │   │       │   ├── GeminiEmbeddingProvider.java
     │   │       │   └── VectorNormalizer.java
+    │   │       ├── generation/
+    │   │       │   ├── ContextAssembler.java
+    │   │       │   ├── DummyLlmGenerationProvider.java
+    │   │       │   ├── GeminiGenerationProvider.java
+    │   │       │   ├── GenerationException.java
+    │   │       │   ├── LlmGenerationProvider.java
+    │   │       │   ├── PromptBuilder.java
+    │   │       │   └── RagService.java
     │   │       ├── model/
     │   │       │   ├── Document.java
     │   │       │   ├── DocumentChunk.java
@@ -227,10 +247,15 @@ projects/02-ide/maven-knowledge-lab/
     │   │       │   └── SimilaritySearchService.java
     │   │       ├── util/
     │   │       │   └── HashUtil.java
-    │   │       └── vector/
-    │   │           ├── FileVectorStore.java
-    │   │           ├── VectorStore.java
-    │   │           └── VectorStoreException.java
+    │   │       ├── vector/
+    │   │       │   ├── FileVectorStore.java
+    │   │       │   ├── VectorStore.java
+    │   │       │   └── VectorStoreException.java
+    │   │       └── web/
+    │   │           ├── HealthServlet.java
+    │   │           ├── RagQueryRequest.java
+    │   │           ├── RagServlet.java
+    │   │           └── WebContextListener.java
     │   └── resources/
     └── test/
         └── java/
@@ -251,19 +276,24 @@ projects/02-ide/maven-knowledge-lab/
                 │   ├── EmbeddingTest.java
                 │   ├── GeminiEmbeddingProviderTest.java
                 │   └── GeminiIntegrationTest.java
+                ├── generation/
+                │   ├── ContextAssemblerTest.java
+                │   ├── GeminiGenerationIntegrationTest.java
+                │   ├── GeminiGenerationProviderTest.java
+                │   ├── PromptBuilderTest.java
+                │   └── RagServiceTest.java
                 ├── model/
                 │   └── DomainModelsTest.java
                 ├── retrieval/
                 │   ├── CosineSimilarityTest.java
                 │   └── SimilaritySearchServiceTest.java
-                └── vector/
-                    ├── FileVectorStoreTest.java
-                    └── VectorStoreCorruptionTest.java
+                ├── vector/
+                │   ├── FileVectorStoreTest.java
+                │   └── VectorStoreCorruptionTest.java
+                └── web/
+                    ├── HealthServletTest.java
+                    ├── ManualWebVerificationTest.java
+                    ├── MockHttpServletRequest.java
+                    ├── MockHttpServletResponse.java
+                    └── RagServletTest.java
 ```
-
-## Future Migration Path to pgVector
-When transitioning from the local binary `FileVectorStore` to a production PostgreSQL + `pgVector` database in future stages:
-1. `VectorStore` interface remains unchanged.
-2. `PgVectorStore` implementation will map `VectorRecord` to a PostgreSQL table `vector_records (id VARCHAR PRIMARY KEY, chunk_id VARCHAR, embedding vector(768), metadata JSONB)`.
-3. Cosine similarity operations will delegate to native pgVector SQL index operators (`<=>` cosine distance operator).
-4. `SimilaritySearchService` and `EmbeddingProvider` remain unaffected due to strict interface decoupling.

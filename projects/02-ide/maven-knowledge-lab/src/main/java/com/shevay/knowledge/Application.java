@@ -55,6 +55,13 @@ public class Application {
                     runSearchCommand(config, queryText);
                     return;
                 }
+                case "rag" -> {
+                    String queryText = (args.length > 1 && !args[1].isBlank())
+                            ? args[1]
+                            : "What is the Maven build lifecycle?";
+                    runRagCommand(config, queryText);
+                    return;
+                }
             }
         }
         runDefaultStartup(config);
@@ -72,6 +79,69 @@ public class Application {
             return new DummyEmbeddingProvider(config.getEmbeddingDimensions());
         }
         return new GeminiEmbeddingProvider(config);
+    }
+
+    private static com.shevay.knowledge.generation.LlmGenerationProvider createLlmGenerationProvider(AppConfig config) {
+        String providerName = config.getGenerationProvider();
+        if ("dummy".equalsIgnoreCase(providerName) || System.getProperty("generation.provider", "").equalsIgnoreCase("dummy")) {
+            System.out.println("[Notice] Using DummyLlmGenerationProvider for offline text generation.");
+            return new com.shevay.knowledge.generation.DummyLlmGenerationProvider();
+        }
+        String apiKey = config.getGeminiApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            System.out.println("[Notice] GEMINI_API_KEY environment variable not set. Falling back to DummyLlmGenerationProvider for offline testing.");
+            return new com.shevay.knowledge.generation.DummyLlmGenerationProvider();
+        }
+        return new com.shevay.knowledge.generation.GeminiGenerationProvider(config);
+    }
+
+    private static void runRagCommand(AppConfig config, String queryText) {
+        System.out.println("==================================================");
+        System.out.println("Maven Knowledge Lab - CLI RAG System");
+        System.out.println("==================================================");
+        System.out.println("Phase 5 RAG Answer Generation Execution");
+        System.out.println();
+        System.out.println("Query Text       : \"" + queryText + "\"");
+        System.out.println("Vector Store Path: " + config.getVectorStorePath());
+        System.out.println("Top-K Limit      : " + config.getTopK());
+        System.out.println("Min Similarity   : " + config.getMinSimilarity());
+        System.out.println("Generation Model : " + config.getGenerationModel());
+        System.out.println("--------------------------------------------------");
+
+        try {
+            VectorStore vectorStore = new FileVectorStore(config);
+            if (vectorStore.size() == 0) {
+                System.out.println("Vector store at '" + config.getVectorStorePath() + "' is empty.");
+                System.out.println("Please run 'java -jar target/maven-knowledge-lab-1.0-SNAPSHOT.jar index' first to populate vectors.");
+                return;
+            }
+
+            EmbeddingProvider embeddingProvider = createEmbeddingProvider(config);
+            com.shevay.knowledge.generation.LlmGenerationProvider generationProvider = createLlmGenerationProvider(config);
+
+            com.shevay.knowledge.generation.RagService ragService = new com.shevay.knowledge.generation.RagService(config, embeddingProvider, generationProvider);
+            com.shevay.knowledge.model.RagResponse ragResponse = ragService.query(queryText, vectorStore);
+
+            System.out.println("Qualifying Chunks Found : " + ragResponse.retrievedChunks().size());
+            System.out.println("Source References       : " + ragResponse.sources().size());
+            System.out.println("--------------------------------------------------");
+            System.out.println("GENERATED ANSWER:");
+            System.out.println(ragResponse.generatedAnswer());
+            System.out.println("--------------------------------------------------");
+            if (!ragResponse.sources().isEmpty()) {
+                System.out.println("SOURCES:");
+                for (int i = 0; i < ragResponse.sources().size(); i++) {
+                    com.shevay.knowledge.model.SourceReference src = ragResponse.sources().get(i);
+                    System.out.printf("[%d] %s (Path: %s, Score: %.4f)%n",
+                            i + 1, src.documentId(), src.sourcePath(), src.relevanceScore());
+                }
+                System.out.println("--------------------------------------------------");
+            }
+            System.out.println("RAG answer generation completed successfully.");
+        } catch (VectorStoreException | EmbeddingException | com.shevay.knowledge.generation.GenerationException | IllegalArgumentException e) {
+            System.err.println("RAG Execution Failed: " + e.getMessage());
+            System.exit(1);
+        }
     }
 
     private static void runIndexCommand(AppConfig config) {
@@ -251,15 +321,18 @@ public class Application {
         System.out.println(" - Embedding Provider   : " + config.getEmbeddingProvider());
         System.out.println(" - Embedding Model      : " + config.getEmbeddingModel());
         System.out.println(" - Embedding Dimensions : " + config.getEmbeddingDimensions());
+        System.out.println(" - Generation Provider  : " + config.getGenerationProvider());
+        System.out.println(" - Generation Model     : " + config.getGenerationModel());
         System.out.println(" - Retrieval Top-K      : " + config.getTopK());
         System.out.println(" - Min Similarity Score : " + config.getMinSimilarity());
         System.out.println("--------------------------------------------------");
-        System.out.println("Phases 1, 2, 3 & 4 Active.");
+        System.out.println("Phases 1, 2, 3, 4 & 5 Active.");
         System.out.println("Available commands:");
         System.out.println("  ingest        - Run document ingestion & chunking");
         System.out.println("  embed <text>  - Generate vector embedding for text");
         System.out.println("  index         - Index knowledge chunks into vector store");
         System.out.println("  search <text> - Perform Top-K exact similarity retrieval");
+        System.out.println("  rag <text>    - Perform end-to-end RAG answer generation");
         System.out.println("--------------------------------------------------");
         System.out.println("Application completed execution cleanly.");
     }

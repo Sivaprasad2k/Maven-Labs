@@ -22,6 +22,10 @@ public final class AppConfig {
     public static final int DEFAULT_EMBEDDING_DIMENSIONS = 768;
     public static final int DEFAULT_EMBEDDING_TIMEOUT_SECONDS = 30;
 
+    public static final String DEFAULT_GENERATION_PROVIDER = "gemini";
+    public static final String DEFAULT_GENERATION_MODEL = "gemini-1.5-flash";
+    public static final int DEFAULT_GENERATION_TIMEOUT_SECONDS = 30;
+
     private final String knowledgePath;
     private final String dataPath;
     private final String vectorStorePath;
@@ -34,6 +38,10 @@ public final class AppConfig {
     private final String embeddingModel;
     private final int embeddingDimensions;
     private final int embeddingTimeoutSeconds;
+
+    private final String generationProvider;
+    private final String generationModel;
+    private final int generationTimeoutSeconds;
 
     public AppConfig(String knowledgePath, String dataPath, int topK, double minSimilarity) {
         this(knowledgePath, dataPath, DEFAULT_VECTOR_STORE_PATH, topK, minSimilarity, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP);
@@ -53,6 +61,15 @@ public final class AppConfig {
     public AppConfig(String knowledgePath, String dataPath, String vectorStorePath, int topK, double minSimilarity,
                      int chunkSize, int chunkOverlap,
                      String embeddingProvider, String embeddingModel, int embeddingDimensions, int embeddingTimeoutSeconds) {
+        this(knowledgePath, dataPath, vectorStorePath, topK, minSimilarity, chunkSize, chunkOverlap,
+                embeddingProvider, embeddingModel, embeddingDimensions, embeddingTimeoutSeconds,
+                DEFAULT_GENERATION_PROVIDER, DEFAULT_GENERATION_MODEL, DEFAULT_GENERATION_TIMEOUT_SECONDS);
+    }
+
+    public AppConfig(String knowledgePath, String dataPath, String vectorStorePath, int topK, double minSimilarity,
+                     int chunkSize, int chunkOverlap,
+                     String embeddingProvider, String embeddingModel, int embeddingDimensions, int embeddingTimeoutSeconds,
+                     String generationProvider, String generationModel, int generationTimeoutSeconds) {
         this.knowledgePath = Objects.requireNonNull(knowledgePath, "knowledgePath must not be null");
         this.dataPath = Objects.requireNonNull(dataPath, "dataPath must not be null");
         this.vectorStorePath = Objects.requireNonNull(vectorStorePath, "vectorStorePath must not be null");
@@ -90,6 +107,20 @@ public final class AppConfig {
             throw new IllegalArgumentException("embeddingTimeoutSeconds must be positive (> 0), got: " + embeddingTimeoutSeconds);
         }
 
+        Objects.requireNonNull(generationProvider, "generationProvider must not be null");
+        if (generationProvider.isBlank()) {
+            throw new IllegalArgumentException("generationProvider must not be blank");
+        }
+
+        Objects.requireNonNull(generationModel, "generationModel must not be null");
+        if (generationModel.isBlank()) {
+            throw new IllegalArgumentException("generationModel must not be blank");
+        }
+
+        if (generationTimeoutSeconds <= 0) {
+            throw new IllegalArgumentException("generationTimeoutSeconds must be positive (> 0), got: " + generationTimeoutSeconds);
+        }
+
         this.topK = topK;
         this.minSimilarity = minSimilarity;
         this.chunkSize = chunkSize;
@@ -98,6 +129,9 @@ public final class AppConfig {
         this.embeddingModel = embeddingModel.trim().toLowerCase();
         this.embeddingDimensions = embeddingDimensions;
         this.embeddingTimeoutSeconds = embeddingTimeoutSeconds;
+        this.generationProvider = generationProvider.trim().toLowerCase();
+        this.generationModel = generationModel.trim().toLowerCase();
+        this.generationTimeoutSeconds = generationTimeoutSeconds;
     }
 
     /**
@@ -130,7 +164,11 @@ public final class AppConfig {
         int embDimensions = parseIntOrDefault(getPropertyOrEnv(props, "embedding.dimensions", "EMBEDDING_DIMENSIONS", null), DEFAULT_EMBEDDING_DIMENSIONS);
         int embTimeout = parseIntOrDefault(getPropertyOrEnv(props, "embedding.timeout-seconds", "EMBEDDING_TIMEOUT_SECONDS", null), DEFAULT_EMBEDDING_TIMEOUT_SECONDS);
 
-        return new AppConfig(kPath, dPath, vPath, k, minSim, cSize, cOverlap, embProvider, embModel, embDimensions, embTimeout);
+        String genProvider = getPropertyOrEnv(props, "generation.provider", "GENERATION_PROVIDER", DEFAULT_GENERATION_PROVIDER);
+        String genModel = getPropertyOrEnv(props, "generation.model", "GENERATION_MODEL", DEFAULT_GENERATION_MODEL);
+        int genTimeout = parseIntOrDefault(getPropertyOrEnv(props, "generation.timeout-seconds", "GENERATION_TIMEOUT_SECONDS", null), DEFAULT_GENERATION_TIMEOUT_SECONDS);
+
+        return new AppConfig(kPath, dPath, vPath, k, minSim, cSize, cOverlap, embProvider, embModel, embDimensions, embTimeout, genProvider, genModel, genTimeout);
     }
 
     private static String getPropertyOrEnv(Properties props, String propKey, String envKey, String defaultValue) {
@@ -214,6 +252,18 @@ public final class AppConfig {
         return embeddingTimeoutSeconds;
     }
 
+    public String getGenerationProvider() {
+        return generationProvider;
+    }
+
+    public String getGenerationModel() {
+        return generationModel;
+    }
+
+    public int getGenerationTimeoutSeconds() {
+        return generationTimeoutSeconds;
+    }
+
     /**
      * Reads GEMINI_API_KEY environment variable.
      * NEVER prints, logs, or exposes the API key.
@@ -238,6 +288,9 @@ public final class AppConfig {
                 ", embedding.model='" + embeddingModel + '\'' +
                 ", embedding.dimensions=" + embeddingDimensions +
                 ", embedding.timeout-seconds=" + embeddingTimeoutSeconds +
+                ", generation.provider='" + generationProvider + '\'' +
+                ", generation.model='" + generationModel + '\'' +
+                ", generation.timeout-seconds=" + generationTimeoutSeconds +
                 '}';
     }
 
@@ -252,16 +305,20 @@ public final class AppConfig {
                 chunkOverlap == appConfig.chunkOverlap &&
                 embeddingDimensions == appConfig.embeddingDimensions &&
                 embeddingTimeoutSeconds == appConfig.embeddingTimeoutSeconds &&
+                generationTimeoutSeconds == appConfig.generationTimeoutSeconds &&
                 Objects.equals(knowledgePath, appConfig.knowledgePath) &&
                 Objects.equals(dataPath, appConfig.dataPath) &&
                 Objects.equals(vectorStorePath, appConfig.vectorStorePath) &&
                 Objects.equals(embeddingProvider, appConfig.embeddingProvider) &&
-                Objects.equals(embeddingModel, appConfig.embeddingModel);
+                Objects.equals(embeddingModel, appConfig.embeddingModel) &&
+                Objects.equals(generationProvider, appConfig.generationProvider) &&
+                Objects.equals(generationModel, appConfig.generationModel);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(knowledgePath, dataPath, vectorStorePath, topK, minSimilarity, chunkSize, chunkOverlap,
-                embeddingProvider, embeddingModel, embeddingDimensions, embeddingTimeoutSeconds);
+                embeddingProvider, embeddingModel, embeddingDimensions, embeddingTimeoutSeconds,
+                generationProvider, generationModel, generationTimeoutSeconds);
     }
 }

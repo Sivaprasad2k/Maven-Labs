@@ -7,18 +7,31 @@
     <groupId>com.shevay.knowledge</groupId>
     <artifactId>maven-knowledge-lab</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>war</packaging>
 
     <name>maven-knowledge-lab</name>
-    <description>Stage 1 Foundation for Maven Knowledge Lab RAG learning system</description>
+    <description>Phase 6 Servlet Web Interface for Maven Knowledge Lab RAG system</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <jakarta.servlet.version>6.0.0</jakarta.servlet.version>
+        <jackson.version>2.17.0</jackson.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>${jakarta.servlet.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -59,6 +72,14 @@
                             <mainClass>com.shevay.knowledge.Application</mainClass>
                         </manifest>
                     </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.4.0</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
                 </configuration>
             </plugin>
         </plugins>
