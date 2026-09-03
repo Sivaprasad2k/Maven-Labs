@@ -33,22 +33,18 @@ class GeminiGenerationProviderTest {
 
     private static String createMockJsonResponse(String text) {
         return "{\n" +
-                "  \"candidates\": [\n" +
+                "  \"id\": \"interactions/12345\",\n" +
+                "  \"status\": \"completed\",\n" +
+                "  \"outputs\": [\n" +
                 "    {\n" +
-                "      \"content\": {\n" +
-                "        \"parts\": [\n" +
-                "          { \"text\": \"" + text + "\" }\n" +
-                "        ],\n" +
-                "        \"role\": \"model\"\n" +
-                "      },\n" +
-                "      \"finishReason\": \"STOP\"\n" +
+                "      \"text\": \"" + text + "\"\n" +
                 "    }\n" +
                 "  ]\n" +
                 "}";
     }
 
     @Test
-    @DisplayName("Should format generateContent request, include x-goog-api-key header, and parse response text")
+    @DisplayName("Should format Interactions API request, include x-goog-api-key header, and parse response text")
     void testSuccessfulGeneration() {
         MockHttpClient mockClient = new MockHttpClient(200, createMockJsonResponse("Maven build lifecycle consists of validate, compile, test, package, verify, install, and deploy."));
         AppConfig config = AppConfig.loadDefaults();
@@ -58,16 +54,17 @@ class GeminiGenerationProviderTest {
 
         assertNotNull(answer);
         assertTrue(answer.contains("compile, test, package"));
-        assertEquals("gemini-1.5-flash", provider.getModelIdentifier());
+        assertEquals("gemini-3.6-flash", provider.getModelIdentifier());
 
         HttpRequest request = mockClient.lastRequest;
         assertNotNull(request);
-        assertEquals("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", request.uri().toString());
+        assertEquals("https://generativelanguage.googleapis.com/v1beta/interactions", request.uri().toString());
         assertEquals("POST", request.method());
         assertEquals("secret-api-key-999", request.headers().firstValue("x-goog-api-key").orElse(null));
 
         String body = mockClient.lastRequestBody;
-        assertTrue(body.contains("\"text\": \"Explain Maven build lifecycle\""));
+        assertTrue(body.contains("\"model\": \"gemini-3.6-flash\""));
+        assertTrue(body.contains("\"input\": \"Explain Maven build lifecycle\""));
     }
 
     @Test
@@ -129,7 +126,7 @@ class GeminiGenerationProviderTest {
     @Test
     @DisplayName("Should handle malformed or empty generation response")
     void testMalformedResponse() {
-        MockHttpClient mockClient = new MockHttpClient(200, "{\"candidates\": []}");
+        MockHttpClient mockClient = new MockHttpClient(200, "{\"outputs\": []}");
         AppConfig config = AppConfig.loadDefaults();
         GeminiGenerationProvider provider = new GeminiGenerationProvider(config, "secret-api-key-999", mockClient);
 

@@ -31,7 +31,7 @@ public class DocumentLoader {
         if (rootPath == null || rootPath.isBlank()) {
             throw new IllegalArgumentException("Knowledge root path must not be null or blank");
         }
-        return loadDocuments(Paths.get(rootPath));
+        return loadDocuments(com.shevay.knowledge.config.AppConfig.resolvePath(rootPath));
     }
 
     /**

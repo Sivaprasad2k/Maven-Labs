@@ -13,14 +13,14 @@ import java.util.Objects;
 
 /**
  * Production implementation of LlmGenerationProvider interacting directly with
- * Google Gemini REST API model (e.g., `gemini-1.5-flash`) via Java 17 HttpClient.
+ * Google Gemini REST Interactions API (model `gemini-3.6-flash`) via Java 17 HttpClient.
  *
  * <p>Authentication is performed exclusively via the `x-goog-api-key` HTTP header.
  * API keys are never written to logs, URLs, exceptions, or error messages.</p>
  */
 public class GeminiGenerationProvider implements LlmGenerationProvider {
 
-    private static final String GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+    private static final String GEMINI_INTERACTIONS_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
     private final String model;
     private final Duration timeout;
@@ -58,11 +58,10 @@ public class GeminiGenerationProvider implements LlmGenerationProvider {
             throw new IllegalArgumentException("Prompt must not be null or blank");
         }
 
-        String jsonPayload = buildGenerateContentJsonPayload(prompt);
-        String requestUrl = GEMINI_API_BASE_URL + "/" + model + ":generateContent";
+        String jsonPayload = buildInteractionsJsonPayload(prompt, model);
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(requestUrl))
+                .uri(URI.create(GEMINI_INTERACTIONS_API_URL))
                 .timeout(timeout)
                 .header("Content-Type", "application/json; charset=UTF-8")
                 .header("x-goog-api-key", apiKey)
@@ -109,15 +108,10 @@ public class GeminiGenerationProvider implements LlmGenerationProvider {
         }
     }
 
-    private static String buildGenerateContentJsonPayload(String prompt) {
+    private static String buildInteractionsJsonPayload(String prompt, String model) {
         return "{\n" +
-                "  \"contents\": [\n" +
-                "    {\n" +
-                "      \"parts\": [\n" +
-                "        { \"text\": \"" + escapeJson(prompt) + "\" }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  ]\n" +
+                "  \"model\": \"" + escapeJson(model) + "\",\n" +
+                "  \"input\": \"" + escapeJson(prompt) + "\"\n" +
                 "}";
     }
 
@@ -126,19 +120,48 @@ public class GeminiGenerationProvider implements LlmGenerationProvider {
             throw new GenerationException("Gemini API returned empty response body");
         }
 
+        // 1. Try Interactions API 'outputs' array structure: {"outputs": [{"text": "..."}]} or [{"parts": [{"text": "..."}]}]
+        int outputsIndex = json.indexOf("\"outputs\":");
+        if (outputsIndex != -1) {
+            String extracted = extractTextAfterMarker(json, outputsIndex);
+            if (extracted != null && !extracted.isBlank()) {
+                return extracted;
+            }
+        }
+
+        // 2. Try candidates array structure (legacy / fallback)
         int candidatesIndex = json.indexOf("\"candidates\":");
-        if (candidatesIndex == -1) {
-            throw new GenerationException("Malformed Gemini API generation response: missing 'candidates' array");
+        if (candidatesIndex != -1) {
+            String extracted = extractTextAfterMarker(json, candidatesIndex);
+            if (extracted != null && !extracted.isBlank()) {
+                return extracted;
+            }
         }
 
-        int textIndex = json.indexOf("\"text\":", candidatesIndex);
-        if (textIndex == -1) {
-            throw new GenerationException("Malformed Gemini API generation response: missing candidate text content");
+        // 3. Fallback: Search for top-level "text": "..."
+        int textIndex = json.indexOf("\"text\":");
+        if (textIndex != -1) {
+            String extracted = extractTextFromQuote(json, textIndex + 7);
+            if (extracted != null && !extracted.isBlank()) {
+                return extracted;
+            }
         }
 
-        int startQuote = json.indexOf('"', textIndex + 7);
+        throw new GenerationException("Malformed Gemini API generation response: missing text output in response body");
+    }
+
+    private static String extractTextAfterMarker(String json, int markerIndex) {
+        int textIndex = json.indexOf("\"text\":", markerIndex);
+        if (textIndex != -1) {
+            return extractTextFromQuote(json, textIndex + 7);
+        }
+        return null;
+    }
+
+    private static String extractTextFromQuote(String json, int fromIndex) {
+        int startQuote = json.indexOf('"', fromIndex);
         if (startQuote == -1) {
-            throw new GenerationException("Malformed Gemini API generation response: invalid text quote format");
+            return null;
         }
 
         StringBuilder sb = new StringBuilder();
@@ -183,13 +206,7 @@ public class GeminiGenerationProvider implements LlmGenerationProvider {
             }
             i++;
         }
-
-        String result = sb.toString().trim();
-        if (result.isEmpty()) {
-            throw new GenerationException("Gemini API returned empty generated text");
-        }
-
-        return result;
+        return sb.toString().trim();
     }
 
     private static String extractErrorMessageFromJson(String json) {

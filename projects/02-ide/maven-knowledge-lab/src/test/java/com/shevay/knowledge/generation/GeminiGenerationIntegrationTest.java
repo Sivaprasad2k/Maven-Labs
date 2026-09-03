@@ -27,7 +27,7 @@ class GeminiGenerationIntegrationTest {
         assertFalse(apiKey.isBlank(), "GEMINI_API_KEY environment variable must not be blank");
 
         GeminiGenerationProvider provider = new GeminiGenerationProvider(config);
-        assertEquals("gemini-1.5-flash", provider.getModelIdentifier());
+        assertEquals("gemini-3.6-flash", provider.getModelIdentifier());
 
         String prompt = "Respond with 'Hello from Maven Knowledge Lab Phase 5!' if you receive this message.";
         String answer = provider.generate(prompt);

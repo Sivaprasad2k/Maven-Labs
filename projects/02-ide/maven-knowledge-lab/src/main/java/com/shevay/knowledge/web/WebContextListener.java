@@ -29,6 +29,10 @@ public class WebContextListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
+        String realPath = sce.getServletContext().getRealPath("/");
+        if (realPath != null) {
+            AppConfig.setServletContextRealPath(realPath);
+        }
         AppConfig config = AppConfig.loadDefaults();
 
         EmbeddingProvider embeddingProvider = createEmbeddingProvider(config);

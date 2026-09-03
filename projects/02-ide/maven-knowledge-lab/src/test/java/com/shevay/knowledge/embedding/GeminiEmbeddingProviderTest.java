@@ -235,6 +235,19 @@ class GeminiEmbeddingProviderTest {
         assertTrue(ex.getMessage().contains("768"));
     }
 
+    @Test
+    @DisplayName("Should reject 3072-dimensional response when provider contract requires 768")
+    void test3072DimensionResponseRejection() {
+        MockHttpClient mockClient = new MockHttpClient(200, createMockSingleJsonResponse(3072));
+        AppConfig config = AppConfig.loadDefaults();
+        GeminiEmbeddingProvider provider = new GeminiEmbeddingProvider(config, "test-api-key-123", mockClient);
+
+        EmbeddingException ex = assertThrows(EmbeddingException.class, () ->
+                provider.embed("Test text", EmbeddingPurpose.QUERY));
+        assertTrue(ex.getMessage().contains("3072"));
+        assertTrue(ex.getMessage().contains("768"));
+    }
+
     // Static helper Mock HttpClient
     static class MockHttpClient extends HttpClient {
         private final int statusCode;

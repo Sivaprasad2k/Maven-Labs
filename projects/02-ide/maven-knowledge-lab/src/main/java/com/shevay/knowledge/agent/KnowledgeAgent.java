@@ -38,8 +38,20 @@ public class KnowledgeAgent {
         if (userQuery == null || userQuery.isBlank()) {
             return "User query must not be blank.";
         }
-
         AgentContext context = new AgentContext(userQuery, toolRegistry.getTools(), maxIterations);
+        return execute(context);
+    }
+
+    /**
+     * Executes the agent loop for the given AgentContext.
+     *
+     * @param context agent context holding query, tool definitions, and history
+     * @return final answer string or controlled fallback message
+     */
+    public String execute(AgentContext context) {
+        if (context == null || context.getUserQuery().isBlank()) {
+            return "User query must not be blank.";
+        }
 
         for (int i = 0; i < maxIterations; i++) {
             AgentDecision decision;

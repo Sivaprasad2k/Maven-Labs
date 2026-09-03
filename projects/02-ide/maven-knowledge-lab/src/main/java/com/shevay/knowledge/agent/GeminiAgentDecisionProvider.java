@@ -11,31 +11,41 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 /**
- * AgentDecisionProvider implementation using Gemini REST API via Java 17 HttpClient.
+ * AgentDecisionProvider implementation using Gemini REST Interactions API via Java 17 HttpClient.
  * Parses Gemini text outputs into structured AgentDecision records.
  */
 public class GeminiAgentDecisionProvider implements AgentDecisionProvider {
 
-    private static final String GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
+    private static final String GEMINI_INTERACTIONS_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
     private final AppConfig config;
+    private final String apiKey;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
     public GeminiAgentDecisionProvider(AppConfig config) {
-        this(config, HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(config.getGenerationTimeoutSeconds()))
-                .build());
+        this(config, null, null);
     }
 
     public GeminiAgentDecisionProvider(AppConfig config, HttpClient httpClient) {
+        this(config, null, httpClient);
+    }
+
+    public GeminiAgentDecisionProvider(AppConfig config, String apiKeyOverride, HttpClient httpClient) {
         this.config = Objects.requireNonNull(config, "config must not be null");
-        this.httpClient = Objects.requireNonNull(httpClient, "httpClient must not be null");
+        String keyCandidate = (apiKeyOverride != null && !apiKeyOverride.isBlank())
+                ? apiKeyOverride
+                : config.getGeminiApiKey();
+        this.apiKey = keyCandidate;
+        this.httpClient = (httpClient != null)
+                ? httpClient
+                : HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(config.getGenerationTimeoutSeconds()))
+                .build();
         this.objectMapper = new ObjectMapper();
     }
 
@@ -43,20 +53,17 @@ public class GeminiAgentDecisionProvider implements AgentDecisionProvider {
     public AgentDecision decide(AgentContext context) throws AgentException {
         Objects.requireNonNull(context, "context must not be null");
 
-        String apiKey = config.getGeminiApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             throw new AgentException("GEMINI_API_KEY environment variable is not configured");
         }
 
         String prompt = buildAgentPrompt(context);
-        String requestBodyJson = buildGeminiRequestBody(prompt);
-
-        URI endpoint = URI.create(GEMINI_API_BASE_URL + config.getGenerationModel() + ":generateContent");
+        String requestBodyJson = buildInteractionsRequestBody(prompt, config.getGenerationModel());
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
-                .uri(endpoint)
+                .uri(URI.create(GEMINI_INTERACTIONS_API_URL))
                 .timeout(Duration.ofSeconds(config.getGenerationTimeoutSeconds()))
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json; charset=UTF-8")
                 .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                 .build();
@@ -123,11 +130,12 @@ public class GeminiAgentDecisionProvider implements AgentDecisionProvider {
         return sb.toString();
     }
 
-    private String buildGeminiRequestBody(String prompt) {
+    private String buildInteractionsRequestBody(String prompt, String model) {
         try {
-            Map<String, Object> textPart = Map.of("text", prompt);
-            Map<String, Object> contentObj = Map.of("parts", List.of(textPart));
-            Map<String, Object> rootObj = Map.of("contents", List.of(contentObj));
+            Map<String, Object> rootObj = Map.of(
+                    "model", model,
+                    "input", prompt
+            );
             return objectMapper.writeValueAsString(rootObj);
         } catch (Exception e) {
             throw new AgentException("Failed to construct Gemini request payload JSON", e);
@@ -137,6 +145,25 @@ public class GeminiAgentDecisionProvider implements AgentDecisionProvider {
     private String extractCandidateText(String responseBodyJson) {
         try {
             JsonNode root = objectMapper.readTree(responseBodyJson);
+
+            // 1. Check Interactions API 'outputs' array structure: {"outputs": [{"text": "..."}]} or [{"parts": [{"text": "..."}]}]
+            JsonNode outputs = root.path("outputs");
+            if (outputs.isArray() && !outputs.isEmpty()) {
+                JsonNode firstOutput = outputs.get(0);
+                if (firstOutput.has("text") && !firstOutput.path("text").asText().isBlank()) {
+                    return firstOutput.path("text").asText().trim();
+                }
+                JsonNode parts = firstOutput.path("parts");
+                if (parts.isArray() && !parts.isEmpty() && parts.get(0).has("text")) {
+                    return parts.get(0).path("text").asText().trim();
+                }
+                JsonNode contentParts = firstOutput.path("content").path("parts");
+                if (contentParts.isArray() && !contentParts.isEmpty() && contentParts.get(0).has("text")) {
+                    return contentParts.get(0).path("text").asText().trim();
+                }
+            }
+
+            // 2. Check candidates array structure (legacy / fallback)
             JsonNode candidates = root.path("candidates");
             if (candidates.isArray() && !candidates.isEmpty()) {
                 JsonNode parts = candidates.get(0).path("content").path("parts");
@@ -144,6 +171,15 @@ public class GeminiAgentDecisionProvider implements AgentDecisionProvider {
                     return parts.get(0).path("text").asText().trim();
                 }
             }
+
+            // 3. Check top-level text / output field
+            if (root.has("text") && !root.path("text").asText().isBlank()) {
+                return root.path("text").asText().trim();
+            }
+            if (root.has("output") && !root.path("output").asText().isBlank()) {
+                return root.path("output").asText().trim();
+            }
+
             throw new AgentException("Invalid or empty candidate text in Gemini response");
         } catch (Exception e) {
             throw new AgentException("Failed to parse Gemini HTTP response payload", e);

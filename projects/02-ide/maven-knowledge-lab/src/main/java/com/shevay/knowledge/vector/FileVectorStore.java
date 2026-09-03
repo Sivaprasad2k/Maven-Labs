@@ -56,7 +56,7 @@ public class FileVectorStore implements VectorStore {
 
     public FileVectorStore(AppConfig config) {
         Objects.requireNonNull(config, "AppConfig must not be null");
-        this.filePath = Path.of(config.getVectorStorePath());
+        this.filePath = AppConfig.resolvePath(config.getVectorStorePath());
         this.expectedDimensions = config.getEmbeddingDimensions();
         initializeStorage();
     }

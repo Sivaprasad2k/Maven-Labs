@@ -195,6 +195,8 @@ public class GeminiEmbeddingProvider implements EmbeddingProvider {
                 "      { \"text\": \"" + escapeJson(text) + "\" }\n" +
                 "    ]\n" +
                 "  },\n" +
+                "  \"taskType\": \"" + escapeJson(taskType) + "\",\n" +
+                "  \"outputDimensionality\": " + outputDimensions + ",\n" +
                 "  \"embedContentConfig\": {\n" +
                 "    \"taskType\": \"" + escapeJson(taskType) + "\",\n" +
                 "    \"outputDimensionality\": " + outputDimensions + "\n" +
@@ -209,6 +211,8 @@ public class GeminiEmbeddingProvider implements EmbeddingProvider {
             sb.append("    {\n");
             sb.append("      \"model\": \"models/").append(escapeJson(model)).append("\",\n");
             sb.append("      \"content\": { \"parts\": [{ \"text\": \"").append(escapeJson(texts.get(i))).append("\" }] },\n");
+            sb.append("      \"taskType\": \"").append(escapeJson(taskType)).append("\",\n");
+            sb.append("      \"outputDimensionality\": ").append(outputDimensions).append(",\n");
             sb.append("      \"embedContentConfig\": {\n");
             sb.append("        \"taskType\": \"").append(escapeJson(taskType)).append("\",\n");
             sb.append("        \"outputDimensionality\": ").append(outputDimensions).append("\n");

@@ -69,6 +69,13 @@ public class Application {
                     runAgentCommand(config, queryText);
                     return;
                 }
+                case "mcp" -> {
+                    String docPath = (args.length > 1 && !args[1].isBlank())
+                            ? args[1]
+                            : "java/collections.md";
+                    runMcpCommand(docPath);
+                    return;
+                }
             }
         }
         runDefaultStartup(config);
@@ -363,11 +370,23 @@ public class Application {
         }
     }
 
+    private static void runMcpCommand(String docPath) {
+        System.out.println("==================================================");
+        System.out.println("Maven Knowledge Lab - CLI RAG System");
+        System.out.println("==================================================");
+        System.out.println("Phase 8 MCP Protocol Lab Execution (STDIO Transport)");
+        System.out.println("--------------------------------------------------");
+        com.shevay.knowledge.mcp.client.McpKnowledgeClient client = new com.shevay.knowledge.mcp.client.McpKnowledgeClient();
+        String output = client.runDemo(docPath);
+        System.out.println(output);
+        System.out.println("--------------------------------------------------");
+        System.out.println("MCP Protocol Lab execution completed successfully.");
+    }
+
     private static void runDefaultStartup(AppConfig config) {
         System.out.println("==================================================");
         System.out.println("Maven Knowledge Lab - CLI RAG System");
         System.out.println("==================================================");
-
         System.out.println("Configuration loaded successfully:");
         System.out.println(" - Knowledge Path       : " + config.getKnowledgePath());
         System.out.println(" - Data Path            : " + config.getDataPath());
@@ -382,7 +401,7 @@ public class Application {
         System.out.println(" - Retrieval Top-K      : " + config.getTopK());
         System.out.println(" - Min Similarity Score : " + config.getMinSimilarity());
         System.out.println("--------------------------------------------------");
-        System.out.println("Phases 1, 2, 3, 4, 5, 6 & 7 Active.");
+        System.out.println("Phases 1, 2, 3, 4, 5, 6, 7 & 8 Active.");
         System.out.println("Available commands:");
         System.out.println("  ingest        - Run document ingestion & chunking");
         System.out.println("  embed <text>  - Generate vector embedding for text");
@@ -390,6 +409,7 @@ public class Application {
         System.out.println("  search <text> - Perform Top-K exact similarity retrieval");
         System.out.println("  rag <text>    - Perform end-to-end RAG answer generation");
         System.out.println("  agent <text>  - Execute controlled knowledge agent");
+        System.out.println("  mcp [path]    - Execute MCP Protocol Lab demonstration");
         System.out.println("--------------------------------------------------");
         System.out.println("Application completed execution cleanly.");
     }

@@ -107,10 +107,19 @@ public class MockHttpServletRequest implements HttpServletRequest {
     @Override public void setCharacterEncoding(String env) {}
     @Override public int getContentLength() { return bodyBytes.length; }
     @Override public long getContentLengthLong() { return bodyBytes.length; }
-    @Override public String getParameter(String name) { return null; }
-    @Override public Enumeration<String> getParameterNames() { return Collections.emptyEnumeration(); }
-    @Override public String[] getParameterValues(String name) { return null; }
-    @Override public Map<String, String[]> getParameterMap() { return Collections.emptyMap(); }
+    private final Map<String, String> parameters = new java.util.HashMap<>();
+
+    public void setParameter(String name, String value) { parameters.put(name, value); }
+    public void addParameter(String name, String value) { parameters.put(name, value); }
+
+    @Override public String getParameter(String name) { return parameters.get(name); }
+    @Override public Enumeration<String> getParameterNames() { return Collections.enumeration(parameters.keySet()); }
+    @Override public String[] getParameterValues(String name) { return parameters.containsKey(name) ? new String[]{parameters.get(name)} : null; }
+    @Override public Map<String, String[]> getParameterMap() {
+        Map<String, String[]> map = new java.util.HashMap<>();
+        parameters.forEach((k, v) -> map.put(k, new String[]{v}));
+        return map;
+    }
     @Override public String getProtocol() { return "HTTP/1.1"; }
     @Override public String getScheme() { return "http"; }
     @Override public String getServerName() { return "localhost"; }

@@ -23,7 +23,7 @@ public final class AppConfig {
     public static final int DEFAULT_EMBEDDING_TIMEOUT_SECONDS = 30;
 
     public static final String DEFAULT_GENERATION_PROVIDER = "gemini";
-    public static final String DEFAULT_GENERATION_MODEL = "gemini-1.5-flash";
+    public static final String DEFAULT_GENERATION_MODEL = "gemini-3.6-flash";
     public static final int DEFAULT_GENERATION_TIMEOUT_SECONDS = 30;
 
     private final String knowledgePath;
@@ -206,6 +206,54 @@ public final class AppConfig {
         } catch (NumberFormatException e) {
             return defaultVal;
         }
+    }
+
+    private static volatile String servletContextRealPath = null;
+
+    public static void setServletContextRealPath(String realPath) {
+        if (realPath != null && !realPath.isBlank()) {
+            servletContextRealPath = realPath;
+        }
+    }
+
+    public static java.nio.file.Path resolvePath(String pathStr) {
+        if (pathStr == null || pathStr.isBlank()) {
+            return java.nio.file.Paths.get(".");
+        }
+        java.nio.file.Path p = java.nio.file.Paths.get(pathStr);
+        if (p.isAbsolute() && java.nio.file.Files.exists(p)) {
+            return p;
+        }
+        // 1. Check relative to current working directory (CLI execution)
+        if (java.nio.file.Files.exists(p)) {
+            return p.toAbsolutePath().normalize();
+        }
+        // 2. Check ServletContext real path if bound
+        if (servletContextRealPath != null) {
+            java.nio.file.Path webPath = java.nio.file.Paths.get(servletContextRealPath, pathStr);
+            if (java.nio.file.Files.exists(webPath)) {
+                return webPath.toAbsolutePath().normalize();
+            }
+        }
+        // 3. Check code source location parent (WAR unpacked location or target/classes)
+        try {
+            java.net.URL codeLoc = AppConfig.class.getProtectionDomain().getCodeSource().getLocation();
+            if (codeLoc != null) {
+                java.nio.file.Path classPathLoc = java.nio.file.Paths.get(codeLoc.toURI());
+                java.nio.file.Path webappRoot = classPathLoc.getParent() != null && classPathLoc.getParent().getParent() != null
+                        ? classPathLoc.getParent().getParent()
+                        : classPathLoc.getParent();
+                if (webappRoot != null) {
+                    java.nio.file.Path candidate = webappRoot.resolve(pathStr);
+                    if (java.nio.file.Files.exists(candidate)) {
+                        return candidate.toAbsolutePath().normalize();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 4. Fallback to normalized absolute path
+        return p.toAbsolutePath().normalize();
     }
 
     public String getKnowledgePath() {
