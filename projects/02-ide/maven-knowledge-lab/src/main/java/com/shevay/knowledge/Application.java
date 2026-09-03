@@ -62,6 +62,13 @@ public class Application {
                     runRagCommand(config, queryText);
                     return;
                 }
+                case "agent" -> {
+                    String queryText = (args.length > 1 && !args[1].isBlank())
+                            ? args[1]
+                            : "What is the Maven build lifecycle?";
+                    runAgentCommand(config, queryText);
+                    return;
+                }
             }
         }
         runDefaultStartup(config);
@@ -307,6 +314,55 @@ public class Application {
         }
     }
 
+    private static void runAgentCommand(AppConfig config, String queryText) {
+        System.out.println("==================================================");
+        System.out.println("Maven Knowledge Lab - CLI RAG System");
+        System.out.println("==================================================");
+        System.out.println("Phase 7 Controlled Knowledge Agent Execution");
+        System.out.println();
+        System.out.println("Query Text       : \"" + queryText + "\"");
+        System.out.println("Vector Store Path: " + config.getVectorStorePath());
+        System.out.println("Max Iterations   : " + com.shevay.knowledge.agent.KnowledgeAgent.DEFAULT_MAX_ITERATIONS);
+        System.out.println("--------------------------------------------------");
+
+        try {
+            VectorStore vectorStore = new FileVectorStore(config);
+            EmbeddingProvider embeddingProvider = createEmbeddingProvider(config);
+            SimilaritySearchService searchService = new SimilaritySearchService(config);
+            com.shevay.knowledge.generation.LlmGenerationProvider generationProvider = createLlmGenerationProvider(config);
+            com.shevay.knowledge.generation.RagService ragService = new com.shevay.knowledge.generation.RagService(config, embeddingProvider, generationProvider);
+
+            com.shevay.knowledge.agent.ToolRegistry toolRegistry = new com.shevay.knowledge.agent.ToolRegistry();
+            toolRegistry.register(new com.shevay.knowledge.agent.tools.SearchKnowledgeTool(searchService, embeddingProvider, vectorStore));
+            toolRegistry.register(new com.shevay.knowledge.agent.tools.GetDocumentTool(config));
+            toolRegistry.register(new com.shevay.knowledge.agent.tools.ExplainMavenConceptTool(ragService, vectorStore));
+
+            com.shevay.knowledge.agent.AgentDecisionProvider decisionProvider;
+            String apiKey = config.getGeminiApiKey();
+            if (apiKey != null && !apiKey.isBlank()) {
+                decisionProvider = new com.shevay.knowledge.agent.GeminiAgentDecisionProvider(config);
+            } else {
+                System.out.println("[Notice] GEMINI_API_KEY environment variable not set. Falling back to DummyAgentDecisionProvider for offline execution.");
+                decisionProvider = new com.shevay.knowledge.agent.DummyAgentDecisionProvider(
+                        "Grounded Answer: Maven lifecycle consists of validate, compile, test, package, verify, install, and deploy phases."
+                );
+            }
+
+            com.shevay.knowledge.agent.KnowledgeAgent agent = new com.shevay.knowledge.agent.KnowledgeAgent(toolRegistry, decisionProvider);
+
+            System.out.println("Registered Tools : " + toolRegistry.getTools().size());
+            System.out.println("--------------------------------------------------");
+            System.out.println("AGENT ANSWER:");
+            String answer = agent.execute(queryText);
+            System.out.println(answer);
+            System.out.println("--------------------------------------------------");
+            System.out.println("Controlled agent execution completed successfully.");
+        } catch (Exception e) {
+            System.err.println("Agent Execution Failed: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+
     private static void runDefaultStartup(AppConfig config) {
         System.out.println("==================================================");
         System.out.println("Maven Knowledge Lab - CLI RAG System");
@@ -326,13 +382,14 @@ public class Application {
         System.out.println(" - Retrieval Top-K      : " + config.getTopK());
         System.out.println(" - Min Similarity Score : " + config.getMinSimilarity());
         System.out.println("--------------------------------------------------");
-        System.out.println("Phases 1, 2, 3, 4 & 5 Active.");
+        System.out.println("Phases 1, 2, 3, 4, 5, 6 & 7 Active.");
         System.out.println("Available commands:");
         System.out.println("  ingest        - Run document ingestion & chunking");
         System.out.println("  embed <text>  - Generate vector embedding for text");
         System.out.println("  index         - Index knowledge chunks into vector store");
         System.out.println("  search <text> - Perform Top-K exact similarity retrieval");
         System.out.println("  rag <text>    - Perform end-to-end RAG answer generation");
+        System.out.println("  agent <text>  - Execute controlled knowledge agent");
         System.out.println("--------------------------------------------------");
         System.out.println("Application completed execution cleanly.");
     }
