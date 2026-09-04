@@ -8,6 +8,9 @@ Maven Knowledge Lab was created as an engineering laboratory to demonstrate AI s
 
 The project emphasizes clean architecture, low dependency overhead, explicit component boundaries, and production-oriented security and configuration practices.
 
+![Developer Console Collage](docs/images/developer-console-collage.png)
+
+
 ## What It Demonstrates
 
 ### Maven and Build Engineering
