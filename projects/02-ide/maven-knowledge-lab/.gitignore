@@ -17,3 +17,4 @@ Thumbs.db
 # Generated data files
 data/vectors.dat
 *.dat
+logs/

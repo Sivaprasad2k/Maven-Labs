@@ -1,281 +1,353 @@
 # Maven Knowledge Lab
 
-Maven Knowledge Lab is a Java 17 and Apache Maven learning laboratory that progressively builds a full-stack Retrieval-Augmented Generation (RAG) system, a controlled Knowledge Agent, and a Model Context Protocol (MCP) tool integration layer. The project intentionally avoids high-level frameworks like Spring Boot or LangChain to expose the foundational software engineering mechanics of document chunking, vector embeddings, similarity search, HTTP transport, servlet handling, and agent decision loops.
+Maven Knowledge Lab is a staged Java 17 learning system that demonstrates how a traditional Maven application can evolve into a knowledge retrieval, RAG, agent, servlet, and MCP-based developer platform.
 
 ## Overview
 
-The primary objective of this repository is to demonstrate fundamental Java engineering and Apache Maven build concepts through the construction of an intelligent document retrieval platform. Instead of relying on black-box abstractions, every component—from text token chunking and binary vector file storage to HTTP request dispatching and MCP tool execution—is implemented directly using standard Java libraries and explicit architecture.
+Maven Knowledge Lab was created as an engineering laboratory to demonstrate AI system components built on standard Java 17 foundation libraries without heavy third-party framework abstraction layers. The system implements document ingestion, deterministic chunking, vector embeddings, similarity search, Retrieval-Augmented Generation (RAG), a Jakarta Servlet web interface, an autonomous knowledge agent, and a Model Context Protocol (MCP) server.
 
-The laboratory progresses through a multi-tier learning roadmap:
-1. Deterministic document parsing, identity hashing, and overlapping window chunking.
-2. Embedding provider abstractions for local testing and Google Gemini API integration.
-3. Custom binary vector store persistence and exact cosine similarity ranking.
-4. RAG context assembly, prompt construction, and grounded text generation.
-5. Jakarta Servlet web interface deployment on Apache Tomcat 10.
-6. Multi-step agent orchestration with bounded iteration loops and tool validation.
-7. Standardized Model Context Protocol (MCP) server over STDIO transport.
-8. Observable developer console for real-time inspection of retrieval pipelines and agent traces.
+The project emphasizes clean architecture, low dependency overhead, explicit component boundaries, and production-oriented security and configuration practices.
+
+## What It Demonstrates
+
+### Maven and Build Engineering
+- Structured Maven multi-phase build configuration (`pom.xml`)
+- Lifecycle management from compile to packaging (`war`)
+- Dependency management using JUnit 5, Jackson, and Jakarta Servlet API
+- Maven Wrapper (`mvnw`, `mvnw.cmd`) for reproducible builds across environments
+
+### Knowledge Ingestion
+- Markdown document loading and structural parsing from local repository storage
+- Deterministic text chunking with configurable window size and overlap
+- SHA-256 content hashing for chunk identity verification and deduplication
+
+### Embeddings
+- Provider abstraction (`EmbeddingProvider`) enabling interchangeable backends
+- `GeminiEmbeddingProvider` integrating Google REST API (`gemini-embedding-001`)
+- `DummyEmbeddingProvider` generating deterministic vectors for offline unit testing
+- 768-dimensional normalized vector representations
+
+### Vector Retrieval
+- Custom file-backed vector storage (`FileVectorStore`) supporting append-only binary persistence
+- Exact cosine similarity calculation and deterministic top-K ranking
+- Configurable minimum similarity threshold filtering
+
+### RAG
+- End-to-end Retrieval-Augmented Generation pipeline (`RagService`)
+- Context assembly and prompt construction (`PromptBuilder`)
+- Integration with Google Gemini REST Interactions API (`gemini-3.6-flash`)
+- Structured attribution with source document references and score metadata
+
+### Web Layer
+- Lightweight Jakarta Servlet implementation running on Apache Tomcat 10+
+- REST API endpoints for system health, knowledge retrieval, RAG generation, and agent execution
+- Embedded developer observability console providing live system metrics and debugging panels
+
+### Knowledge Agent
+- Bounded execution loop (`KnowledgeAgent`) with configurable step limits
+- Controlled tool registry (`AgentToolRegistry`) with strict tool allowlisting
+- Structured decision parsing (`GeminiAgentDecisionProvider`) generating JSON decision payloads
+
+### MCP
+- Model Context Protocol laboratory implementation (`McpKnowledgeServer`)
+- Standard input/output (STDIO) transport protocol
+- Protocol tool discovery (`tools/list`) and execution (`tools/call`)
+- Path traversal protection ensuring access is strictly restricted to valid knowledge documents
 
 ## Architecture
 
-The system follows a layered architecture where user interfaces (CLI, Web Servlets, and MCP Client) interact with underlying application services, which coordinate domain models, external Gemini providers, and binary storage.
-
 ```
-+-----------------------------------------------------------------------+
-|                           USER INTERFACES                             |
-|  +--------------------+   +----------------------+   +-------------+  |
-|  |   CLI Commands     |   |   Jakarta Servlets   |   | MCP Client  |  |
-|  | (Application.java) |   | (Developer Console)  |   |   (STDIO)   |  |
-|  +---------+----------+   +----------+-----------+   +------+------+  |
-+------------|-------------------------|----------------------|---------+
-             |                         |                      |
-             v                         v                      v
-+-----------------------------------------------------------------------+
-|                         APPLICATION SERVICES                          |
-|  +---------------------+  +--------------------+  +----------------+  |
-|  | Document Ingestion  |  | Similarity Search  |  |  RagService    |  |
-|  +---------------------+  +--------------------+  +----------------+  |
-|  | KnowledgeAgent      |  | ToolRegistry       |  | McpServer      |  |
-|  +---------------------+  +--------------------+  +----------------+  |
-+------------|-------------------------|----------------------|---------+
-             |                         |                      |
-             v                         v                      v
-+-----------------------------------------------------------------------+
-|                          CORE INFRASTRUCTURE                          |
-|  +---------------------+  +--------------------+  +----------------+  |
-|  |  FileVectorStore    |  |  Gemini Providers  |  | Java HttpClient|  |
-|  | (data/vectors.dat)  |  | (Embedding / LLM)  |  | (v1beta API)   |  |
-|  +---------------------+  +--------------------+  +----------------+  |
-+-----------------------------------------------------------------------+
+User / HTTP Client
+  |
+  v
+Developer Console / Servlets (Tomcat)
+  |
+  +----------------------+----------------------+
+  |                      |                      |
+  v                      v                      v
+RAG Pipeline        Knowledge Agent         MCP Server
+  |                      |                      |
+  v                      v                      v
+Embedding Provider   Agent Decision Provider  Document Service
+  |                      |                      |
+  v                      v                      v
+Vector Store         Tool Registry          Knowledge Corpus
+  |                      |
+  +----------+-----------+
+             |
+             v
+      Knowledge Corpus
 ```
 
-### Component Flow
-- **Ingestion & Indexing**: Raw Markdown files in `knowledge/` are discovered, normalized, chunked into overlapping windows, converted to 768-dimensional float vectors via `GeminiEmbeddingProvider`, and persisted to `data/vectors.dat`.
-- **RAG Execution**: User queries generate query embeddings, search stored vectors via `SimilaritySearchService` using cosine similarity, assemble retrieved context, and submit prompts to `gemini-3.6-flash` via the Gemini Interactions API (`POST /v1beta/interactions`).
-- **Agent Loop**: `KnowledgeAgent` uses `GeminiAgentDecisionProvider` to evaluate user intent, select tools from `ToolRegistry`, execute tools (`searchKnowledge`, `getDocument`, `explainMavenConcept`), and formulate grounded responses within bounded iterations.
-- **MCP Integration**: `McpKnowledgeServer` exposes `getKnowledgeDocument` over STDIO transport, enforcing security boundary checks against directory traversal.
-
-## Core Capabilities
-
-### Document Ingestion
-- **Discovery & Processing**: `DocumentIngestionService` recursively scans the `knowledge/` corpus, filtering for `.md` files and tracking ingestion statistics.
-- **Content Identity & Hashing**: Each document is assigned a unique identifier (`doc-java-collections`) and SHA-256 content hash (`contentHash`) to detect modifications.
-- **Deterministic Chunking**: `TextChunker` breaks documents into sliding windows (default `chunkSize = 800` characters, `overlap = 100` characters), creating immutable `DocumentChunk` instances with chunk indices and position metadata.
-
-### Embedding
-- **Provider Abstraction**: `EmbeddingProvider` defines the contract for converting text into float array vectors.
-- **Gemini Embedding Provider**: `GeminiEmbeddingProvider` communicates directly with Google Gemini's REST API using Java 17 `HttpClient`, requesting 768-dimensional vectors using `models/gemini-embedding-001`.
-- **Embedding Purpose Distinction**: Differentiates between `EmbeddingPurpose.DOCUMENT` (indexing) and `EmbeddingPurpose.QUERY` (retrieval) to align with embedding model task types.
-- **Dummy Fallback Provider**: `DummyEmbeddingProvider` produces deterministic pseudo-embeddings for hermetic unit testing when `GEMINI_API_KEY` is not present.
-
-### Vector Storage and Retrieval
-- **FileVectorStore**: A custom binary vector storage engine that serializes `VectorRecord` objects to `data/vectors.dat` using DataOutputStream and DataInputStream primitives.
-- **Exact Cosine Similarity**: `SimilaritySearchService` calculates exact dot-product cosine similarity between query vectors and stored document vectors without relying on third-party vector databases.
-- **Deterministic Filtering & Ranking**: Results are filtered against a minimum similarity threshold (`minSimilarity = 0.70`), sorted by score descending, and capped at `topK = 3`.
-
-### Retrieval-Augmented Generation
-- **Pipeline Stages**: Query $\rightarrow$ Query Embedding $\rightarrow$ Exact Cosine Search $\rightarrow$ Context Assembly $\rightarrow$ Prompt Construction $\rightarrow$ Generation Provider.
-- **Grounded Safeguards**: `RagService` validates retrieved context against the minimum similarity threshold. If no chunks pass the threshold, the pipeline returns a explicit message stating no relevant knowledge context was found, preventing hallucinated answers.
-- **Generation Model**: Text generation uses `gemini-3.6-flash` via `POST https://generativelanguage.googleapis.com/v1beta/interactions` with `x-goog-api-key` header authentication.
-
-### Servlet Web Interface
-- **Jakarta Servlet 6.0**: Web endpoints are implemented using standard Jakarta Servlets mapped via annotations.
-- **Endpoint Structure**:
-  - `GET /`, `GET /console`: Renders the Developer Console (`DeveloperConsoleServlet`).
-  - `POST /api/rag/query`: RAG pipeline query execution (`RagServlet`).
-  - `POST /api/agent/query`: Controlled agent decision loop execution (`AgentServlet`).
-  - `GET /api/knowledge/documents`, `GET /api/knowledge/document`: Corpus listing and document fetching (`KnowledgeServlet`).
-  - `GET /api/mcp`, `POST /api/mcp/test`: MCP tool invocation and STDIO verification (`McpServlet`).
-  - `GET /api/health`: Health status endpoint (`HealthServlet`).
-- **Context Initialization**: `WebContextListener` inspects JVM system properties and environment variables during deployment to wire dependencies (`GeminiEmbeddingProvider`, `GeminiGenerationProvider`, `FileVectorStore`).
-
-### Controlled Knowledge Agent
-- **Orchestration Architecture**: `KnowledgeAgent` manages a bounded loop (maximum `5` iterations) that delegates decisions to `AgentDecisionProvider`.
-- **Tool Registry**: `ToolRegistry` maintains registered tool instances (`SearchKnowledgeTool`, `GetDocumentTool`, `ExplainMavenConceptTool`).
-- **Decision Engine**: `GeminiAgentDecisionProvider` submits query history and available tool definitions to `gemini-3.6-flash`, parsing structured JSON decisions (`TOOL_CALL` or `FINAL_ANSWER`).
-- **Execution Boundaries**: Tools are validated against an explicit allowlist. The agent cannot execute system commands, access unauthorized files, or perform network calls outside its registered tools.
-
-### MCP Protocol Lab
-- **Isolated Design**: Model Context Protocol (MCP) is implemented as a standalone protocol demonstration independent of the internal `KnowledgeAgent`.
-- **STDIO Transport**: `McpKnowledgeServer` exposes knowledge tools over standard input/output streams using `mcp-core` SDK.
-- **Tool Definition**: Implements `getKnowledgeDocument`, accepting relative document paths (`java/collections.md`).
-- **Path Traversal Protection**: Enforces security boundaries, rejecting path traversal attempts (e.g. `../pom.xml`) with HTTP 400 / access denied errors.
-
-### Developer Console
-- **Single-Page Inspection Interface**: Served directly by `DeveloperConsoleServlet` using native HTML, Vanilla CSS, and JavaScript.
-- **Observability Views**:
-  - **Knowledge Base**: Metric cards (`Document Count`, `Vector Records`, `Dimensions`), document tree, and raw markdown reader.
-  - **RAG Pipeline**: Query input stage, generated answer panel, raw cosine similarity scores (`0.8842`), and chunk previews.
-  - **Agent Trace**: Vertical execution timeline detailing step number, decision type, tool name, arguments, and execution outputs.
-  - **MCP Inspector**: Protocol status, tool JSON schema viewer, interactive path invocation form, and raw output JSON viewer.
-
-## Technology Stack
-
-| Layer / System | Technology / Library | Version | Purpose |
-| :--- | :--- | :--- | :--- |
-| **Language** | Java | 17 | Core runtime environment |
-| **Build System** | Apache Maven | 3.9+ (Wrapper) | Dependency management, compilation, packaging |
-| **Web Runtime** | Jakarta Servlet | 6.0.0 | HTTP endpoint dispatching |
-| **Servlet Container** | Apache Tomcat | 10.1.x | Web application container |
-| **JSON Parser** | Jackson Databind | 2.17.0 | Data serialization & API JSON parsing |
-| **Protocol Integration**| MCP Core SDK | 2.0.1 | Model Context Protocol STDIO implementation |
-| **HTTP Transport** | Java `HttpClient` | Built-in (JDK 17) | Direct REST communication with Gemini APIs |
-| **Testing Framework** | JUnit Jupiter | 5.10.2 | Unit, service, and servlet test execution |
-| **Vector Store** | Custom Binary (`DataOutputStream`) | Built-in | Local vector file persistence (`data/vectors.dat`) |
-
-## Maven Concepts Demonstrated
-
-As a Maven learning laboratory, this repository demonstrates key build engineering concepts:
-
-- **Maven Coordinates**: Standardized `groupId` (`com.shevay.knowledge`), `artifactId` (`maven-knowledge-lab`), and `version` (`1.0-SNAPSHOT`) structure.
-- **Dependency Management & Scopes**: Explicit scope declarations (`provided` for `jakarta.servlet-api`, `test` for `junit-jupiter`).
-- **WAR Packaging**: Configured `<packaging>war</packaging>` with `maven-war-plugin` web resource mapping (`knowledge/` and `data/` copied into the WAR archive).
-- **Executable Manifest Wiring**: `maven-jar-plugin` configuration defining `Main-Class` (`com.shevay.knowledge.Application`) for standalone CLI execution.
-- **Compiler Configuration**: `maven-compiler-plugin` setting Java 17 release target (`<release>17</release>`).
-- **Test Automation**: `maven-surefire-plugin` executing test suites during `mvnw clean test`.
-- **Hermetic Build Wrapper**: Bundled `mvnw` / `mvnw.cmd` scripts ensuring consistent Maven version usage without pre-installed local tooling.
-
-## Java Engineering Concepts
-
-- **Interface Abstractions**: Decoupled contracts (`EmbeddingProvider`, `VectorStore`, `LlmGenerationProvider`, `AgentDecisionProvider`).
-- **Immutable Domain Records**: Java 17 `record` types (`DocumentChunk`, `VectorRecord`, `RetrievedChunk`, `SourceReference`, `RagResponse`).
-- **Robust Exception Hierarchy**: Specialized checked/unchecked exceptions (`VectorStoreException`, `EmbeddingException`, `GenerationException`).
-- **Standard HTTP Communication**: Asynchronous and synchronous `java.net.http.HttpClient` utilization for JSON REST APIs without SDK dependencies.
-- **Binary I/O Streams**: Primitive binary serialization using `DataOutputStream` and `DataInputStream` for compact vector storage.
-- **Thread-Safe Servlets**: Stateless servlet request handlers communicating through thread-safe services.
+```
+Browser Interface
+  |
+  v
+Servlet Layer (DeveloperConsoleServlet, RagServlet, HealthServlet)
+  |
+  +--> RAG Service
+  +--> Knowledge Agent
+  +--> MCP Client Protocol Interface
+              |
+              v
+       STDIO Transport
+              |
+              v
+        MCP Server
+              |
+              v
+      Knowledge Repository
+```
 
 ## Project Structure
 
 ```
 maven-knowledge-lab/
-├── .mvn/                         # Maven Wrapper binary configuration
-├── data/                         # Local vector persistence directory
-│   └── vectors.dat               # Binary file store containing vector records
-├── knowledge/                    # Knowledge corpus Markdown files
-│   ├── java/                     # Java documentation (collections.md, concurrency.md)
-│   └── maven/                    # Maven documentation (dependencies.md, lifecycle.md)
+├── .mvn/
+│   └── wrapper/
+├── knowledge/
+│   ├── java/
+│   │   ├── collections.md
+│   │   └── concurrency.md
+│   └── maven/
+│       ├── dependencies.md
+│       └── lifecycle.md
 ├── src/
 │   ├── main/
-│   │   └── java/com/shevay/knowledge/
-│   │       ├── agent/            # Agent orchestration, decision providers, and tools
-│   │       ├── config/           # Centralized configuration management (AppConfig)
-│   │       ├── document/         # Ingestion, loader, content hashing, and text chunker
-│   │       ├── embedding/        # Gemini and Dummy embedding providers
-│   │       ├── generation/       # Gemini generation provider and RAG pipeline
-│   │       ├── mcp/              # MCP Server, Client, and Test Service implementations
-│   │       ├── model/            # Domain models and Java 17 records
-│   │       ├── retrieval/        # Cosine similarity calculation and search service
-│   │       ├── vector/           # Binary FileVectorStore implementation
-│   │       └── web/              # Jakarta Servlets and Developer Console HTML
+│   │   ├── java/com/shevay/knowledge/
+│   │   │   ├── agent/
+│   │   │   ├── config/
+│   │   │   ├── document/
+│   │   │   ├── embedding/
+│   │   │   ├── generation/
+│   │   │   ├── mcp/
+│   │   │   ├── model/
+│   │   │   ├── retrieval/
+│   │   │   ├── vector/
+│   │   │   └── web/
+│   │   └── webapp/
+│   │       ├── WEB-INF/
+│   │       │   └── web.xml
+│   │       └── index.html
 │   └── test/
-│       └── java/com/shevay/knowledge/ # Hermetic unit and integration test suite
-├── mvnw                          # Linux/macOS Maven Wrapper script
-├── mvnw.cmd                      # Windows Maven Wrapper script
-├── pom.xml                       # Project Object Model configuration
-└── README.md                     # Engineering platform documentation
+│       └── java/com/shevay/knowledge/
+├── .gitignore
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+└── README.md
 ```
+
+## Technology Stack
+
+| Technology | Purpose |
+| :--- | :--- |
+| Java 17 | Core programming language runtime |
+| Maven / Maven Wrapper | Build automation, dependency resolution, packaging |
+| Jakarta Servlet 6.0 | Web layer specification for servlet container integration |
+| Apache Tomcat 10.1+ | Servlet web server host environment |
+| Jackson Databind | JSON serialization and parsing |
+| JUnit 5 | Automated unit and integration testing framework |
+| Gemini REST API | Remote vector embedding (`gemini-embedding-001`) and generation (`gemini-3.6-flash`) |
+
+*Note: Vendor SDKs (such as Google Cloud SDKs) are intentionally avoided. Remote interactions are implemented directly using native Java 17 `HttpClient` and REST JSON payloads.*
+
+## Knowledge Pipeline
+
+```
+Document File (.md)
+  → Read & Load (DocumentLoader)
+  → Normalize & Hash (DocumentIngestionService)
+  → Structural Chunking (TextChunker)
+  → Vector Embedding (GeminiEmbeddingProvider)
+  → Binary Store (FileVectorStore)
+  → Cosine Similarity Search (SimilaritySearchService)
+  → Context Assembly (ContextAssembler)
+  → LLM Prompt Generation (GeminiGenerationProvider)
+```
+
+## Agent Model
+
+The Knowledge Agent operates as a controlled orchestrator over registered application capabilities.
+
+```
+User Query
+  → Prompt Construction
+  → Decision Generation (GeminiAgentDecisionProvider)
+  → Decision Validation (Tool Call vs Final Answer)
+  → Execution (AgentToolRegistry)
+  → Result Append to Context History
+  → Iterative Loop (up to max iterations)
+  → Final Answer Response
+```
+
+- **Bounded Execution**: Loop terminates automatically when a `final_answer` decision is produced or maximum allowed steps (default: 5) are reached.
+- **Allowlisted Tools**: Agent can only invoke tools explicitly defined in `AgentToolRegistry` (`getKnowledgeDocument`, `searchKnowledgeBase`).
+- **Safety Controls**: Arbitrary shell execution, filesystem navigation outside designated root, and network scanning are completely blocked by design.
+
+## MCP Model
+
+The Model Context Protocol implementation provides a standardized interface for discovery and execution of knowledge base utilities over standard input/output (STDIO).
+
+```
+MCP Client Request
+  → STDIO Transport Interface
+  → Protocol Parser (JSON-RPC tool format)
+  → McpKnowledgeServer Execution
+  → Document Retrieval & Traversal Verification
+  → JSON Response Formatting
+```
+
+Phase 8 uses an isolated STDIO-based protocol implementation designed for local process integration. HTTP transport and external network listeners are intentionally excluded.
 
 ## Running the Project
 
-### Automated Tests
-Run the automated test suite using the Maven Wrapper:
-```bash
-./mvnw clean test
-```
-*Windows (PowerShell/CMD):*
+### Build and Test
+
+Execute automated unit tests:
+
 ```cmd
 .\mvnw.cmd clean test
 ```
 
-### Build and Package
-Package the project into a WAR file:
+Package application artifact (WAR archive):
+
 ```cmd
-.\mvnw.cmd clean package
-```
-The output WAR is generated at `target/maven-knowledge-lab-1.0-SNAPSHOT.war`.
-
-### Command Line Interface
-Run CLI sub-commands using Maven or java:
-```cmd
-# Document Ingestion
-.\mvnw.cmd exec:java -Dexec.args="ingest"
-
-# Vector Indexing (processes knowledge/ and saves to data/vectors.dat)
-.\mvnw.cmd exec:java -Dexec.args="index"
-
-# Similarity Search
-.\mvnw.cmd exec:java -Dexec.args="search \"What is the Maven lifecycle?\""
-
-# RAG Pipeline Query
-.\mvnw.cmd exec:java -Dexec.args="rag \"What is the Maven lifecycle?\""
-
-# Knowledge Agent Query
-.\mvnw.cmd exec:java -Dexec.args="agent \"Explain Maven dependency scopes\""
-
-# MCP Protocol Demo
-.\mvnw.cmd exec:java -Dexec.args="mcp java/collections.md"
+.\mvnw.cmd package
 ```
 
-### Web Application (Tomcat Deployment)
-1. Deploy `target/maven-knowledge-lab-1.0-SNAPSHOT.war` to Apache Tomcat 10 (`webapps/`).
-2. Start Tomcat container.
-3. Access the Developer Console in your browser:
-   `http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/`
-4. Health check endpoint:
-   `http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/api/health`
+The compiled web artifact will be generated at `target/maven-knowledge-lab-1.0-SNAPSHOT.war`.
+
+### Running via CLI Mode
+
+The application includes a main entry point for CLI experimentation:
+
+```cmd
+java -cp target/classes com.shevay.knowledge.Application
+```
+
+### Web Deployment
+
+To deploy to Tomcat 10.1+:
+
+1. Build the WAR archive (`.\mvnw.cmd package`).
+2. Copy `target/maven-knowledge-lab-1.0-SNAPSHOT.war` into Tomcat's `webapps` directory.
+3. Start Tomcat (`bin/catalina.bat run`).
+4. Access the Developer Console at `http://localhost:8080/maven-knowledge-lab-1.0-SNAPSHOT/`.
 
 ## Configuration
 
-Configuration parameters are managed by `AppConfig` and can be customized via JVM system properties or environment variables:
+Configuration parameters are loaded via `AppConfig`. The Google Gemini API key resolution follows a strict priority order:
 
-| Property / Parameter | Environment Variable | Default Value | Description |
-| :--- | :--- | :--- | :--- |
-| `gemini.api.key` | `GEMINI_API_KEY` | `""` (Empty) | API key for Google Gemini REST services |
-| `embedding.provider` | `EMBEDDING_PROVIDER` | `gemini` | Embedding provider (`gemini` or `dummy`) |
-| `embedding.model` | `EMBEDDING_MODEL` | `gemini-embedding-001` | Gemini embedding model name |
-| `embedding.dimensions`| `EMBEDDING_DIMENSIONS`| `768` | Target vector dimensionality |
-| `generation.model` | `GENERATION_MODEL` | `gemini-3.6-flash` | Gemini text generation model name |
-| `retrieval.top-k` | `RETRIEVAL_TOP_K` | `3` | Maximum retrieved vector results |
-| `retrieval.min-similarity` | `MIN_SIMILARITY` | `0.70` | Cosine similarity cutoff threshold |
+1. System property: `gemini.api.key` (e.g., `-Dgemini.api.key=YOUR_KEY`)
+2. Environment variable: `GEMINI_API_KEY`
 
-*Resolution Precedence for Gemini API Key*:
-1. JVM System Property (`-Dgemini.api.key=...`)
-2. Environment Variable (`GEMINI_API_KEY=...`)
-3. Fallback to `null` (triggers safe `DummyEmbeddingProvider` fallback for offline testing)
+```cmd
+set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```
 
-*Security Warning*: Never commit `GEMINI_API_KEY` or pass API keys in source code or tracked configuration files.
+Default runtime settings:
 
-## Automated Testing Strategy
+| Setting | Default Value | Description |
+| :--- | :--- | :--- |
+| `embedding.provider` | `gemini` | Embedding backend provider (`gemini` or `dummy`) |
+| `embedding.model` | `gemini-embedding-001` | Embedding model identifier |
+| `embedding.dimensions` | `768` | Vector dimensionality |
+| `generation.provider` | `gemini` | Text generation backend provider (`gemini` or `dummy`) |
+| `generation.model` | `gemini-3.6-flash` | Text generation model identifier |
+| `retrieval.top.k` | `3` | Maximum retrieved context chunks |
+| `retrieval.min.score` | `0.70` | Minimum cosine similarity threshold |
 
-The repository includes a comprehensive test suite of **154 automated tests**:
-- **Unit Tests**: Test core domain records, chunking calculations, SHA-256 content hashing, cosine similarity algorithms, and prompt formatting.
-- **Provider Tests**: Verify mock HTTP responses, request headers (`x-goog-api-key`), JSON payload structures, and error handling for Gemini REST APIs.
-- **Servlet Tests**: Inspect HTTP status codes, headers, and JSON responses using `MockHttpServletRequest` and `MockHttpServletResponse`.
-- **MCP Tests**: Test MCP server discovery, tool invocation, and path traversal rejection (`../pom.xml`).
-- **Integration Tests**: Opt-in integration tests (`GeminiIntegrationTest`, `GeminiGenerationIntegrationTest`) execute against live Gemini APIs when `GEMINI_API_KEY` is present.
+## HTTP API
 
-## Security and Design Boundaries
+The web application exposes standard REST JSON endpoints:
 
-- **Credential Isolation**: API keys are read strictly from environment variables; zero credentials are stored in code or repository files.
-- **Path Traversal Defense**: Knowledge file readers resolve paths against the canonical `knowledge/` root directory, rejecting attempts containing `../` or absolute directory references.
-- **Bounded Agent Execution**: The `KnowledgeAgent` enforces a strict iteration limit (`5` steps) to prevent infinite decision loops.
-- **Allowlisted Tool Execution**: Agents and MCP servers can only execute explicitly registered tools. Arbitrary command execution, filesystem access, or external network requests are strictly forbidden.
+### Health Check
 
-## Deliberate Design Constraints
+- **Method**: `GET`
+- **Path**: `/api/health`
+- **Response**: `200 OK`
+  ```json
+  {
+    "status": "UP",
+    "timestamp": "2026-09-04T07:14:00Z",
+    "version": "1.0-SNAPSHOT"
+  }
+  ```
 
-To maintain a focused learning environment, the project intentionally excludes:
-- **Framework Magic**: Excludes Spring, Spring Boot, and Spring AI to emphasize explicit Java dependency wiring.
-- **Orchestration Libraries**: Excludes LangChain, LangGraph, or LlamaIndex to build RAG and agent loops from basic principles.
-- **External Vector Databases**: Excludes PostgreSQL/pgvector, Pinecone, or Milvus in favor of a readable local binary vector store.
-- **Complex Transports**: Excludes SSE/HTTP transports for MCP to focus on pure STDIO protocol mechanics.
+### RAG Query
 
-## Engineering Trade-offs
+- **Method**: `POST`
+- **Path**: `/api/rag/query`
+- **Request Body**:
+  ```json
+  {
+    "query": "What is the Maven lifecycle?"
+  }
+  ```
+- **Response Body**:
+  ```json
+  {
+    "query": "What is the Maven lifecycle?",
+    "answer": "...",
+    "retrievedChunks": [
+      {
+        "documentPath": "maven/lifecycle.md",
+        "similarityScore": 0.85,
+        "contentSnippet": "..."
+      }
+    ]
+  }
+  ```
 
-- **File-Based Vector Persistence**: Chosen for simplicity and zero external infrastructure dependencies. Not intended for multi-million vector distributed scale.
-- **Exact Cosine Search**: Iterates over all stored vectors in $O(N)$ time. Provides exact retrieval accuracy without approximate nearest neighbor (ANN) indexing overhead.
-- **Native Java HttpClient**: Avoids heavy SDK dependencies while providing full control over HTTP headers, timeouts, and JSON payloads.
-- **Manual Dependency Wiring**: Servlets and CLI commands manually instantiate required services, providing explicit lifecycle clarity over dependency injection containers.
+## Testing
 
-## Project Status
+The repository contains an automated regression suite built on JUnit 5.
 
-Maven Knowledge Lab is a **completed engineering platform**. All core retrieval, generation, agent, web servlet, and MCP features are fully implemented, tested, and verified.
+- **Total Tests**: 95 executed in default test suite (160 across all unit and mock integration test classes)
+- **Failures**: 0
+- **Errors**: 0
+- **Skipped**: 1 (Opt-in live external integration test requiring API quota)
+
+Test coverage includes configuration parsing, document chunking, SHA-256 identity verification, vector store binary serialization, cosine similarity calculations, RAG context assembly, Servlet HTTP handling, agent decision processing, and MCP protocol handling.
+
+## Security Considerations
+
+- **Credential Management**: API keys are supplied strictly via environment variables or system properties. Secrets are never logged, stored in source files, or serialized into exceptions.
+- **HTTP Header Authentication**: Gemini API requests use the official `x-goog-api-key` header rather than URL query parameter authentication.
+- **Path Traversal Protection**: File loading utilities and MCP tool implementations reject relative path escapes (e.g., `../`, `..\`) and enforce root directory validation.
+- **Execution Scoping**: The knowledge agent is restricted to an explicit tool registry and cannot execute system processes or mutate files.
+
+## Limitations
+
+- **Linear Vector Search**: `FileVectorStore` performs exact linear scans (`O(N)`) over persistent vector records. It is designed for learning and small-scale corpora, not large-scale production vector indexing.
+- **STDIO Transport Scope**: The MCP implementation is strictly STDIO-based and does not support HTTP/SSE transports.
+- **External API Rate Limits**: Remote embedding and generation features rely on external Google Gemini REST endpoints, which are subject to free-tier rate limits (429 RESOURCE_EXHAUSTED).
+- **Index Rebuilding**: Changing embedding models or dimensionality requires rebuilding the binary `data/vectors.dat` store.
+
+## Design Decisions
+
+- **Direct Java HttpClient**: Native HTTP capabilities eliminate third-party SDK dependencies, reducing build artifact size and maintenance footprint.
+- **Binary File Storage**: Storing vector records in a simple binary format (`FileVectorStore`) provides clear visibility into serialization mechanics without requiring external database instances.
+- **Modular Component Isolation**: Domain logic (chunking, retrieval, generation) is completely decoupled from web servlets, allowing identical components to power CLI, Servlet, and MCP interfaces.
+
+## Learning Progression
+
+- **Phase 1 — Foundation**: Project structure, configuration management, and domain models.
+- **Phase 2 — Document Ingestion**: Document loading, normalization, SHA-256 hashing, and text chunking.
+- **Phase 3 — Embedding Provider**: Embedding interface and Google Gemini REST provider (`gemini-embedding-001`).
+- **Phase 4 — Vector Store & Retrieval**: Binary vector storage and cosine similarity retrieval.
+- **Phase 5 — RAG Generation**: Context assembly, prompt engineering, and LLM text generation (`gemini-3.6-flash`).
+- **Phase 6 — Servlet Web Interface**: Jakarta Servlet endpoints and embedded developer console.
+- **Phase 7 — Knowledge Agent**: Autonomous agent decision loop with structured tool usage.
+- **Phase 8 — MCP Protocol Lab**: Model Context Protocol implementation for tool discovery and execution.
+
+Phase 8 is the final planned phase of Maven Knowledge Lab.
+
+## Future Work
+
+This repository is intentionally frozen after Phase 8. Future experiments such as PostgreSQL/pgvector, approximate nearest-neighbor indexing, or additional MCP transports belong in separate learning projects rather than expanding this laboratory.
+
+## Status
+
+Status: Complete / Frozen
