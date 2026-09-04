@@ -206,9 +206,19 @@ class GeminiEmbeddingProviderTest {
     @Test
     @DisplayName("Should throw IllegalStateException if GEMINI_API_KEY is not set")
     void testMissingApiKey() {
-        AppConfig config = AppConfig.loadDefaults();
-        assertThrows(IllegalStateException.class, () -> new GeminiEmbeddingProvider(config, null, null));
-        assertThrows(IllegalStateException.class, () -> new GeminiEmbeddingProvider(config, "  ", null));
+        String origProp = System.getProperty("gemini.api.key");
+        try {
+            System.setProperty("gemini.api.key", "");
+            AppConfig config = AppConfig.loadDefaults();
+            assertThrows(IllegalStateException.class, () -> new GeminiEmbeddingProvider(config, null, null));
+            assertThrows(IllegalStateException.class, () -> new GeminiEmbeddingProvider(config, "  ", null));
+        } finally {
+            if (origProp != null) {
+                System.setProperty("gemini.api.key", origProp);
+            } else {
+                System.clearProperty("gemini.api.key");
+            }
+        }
     }
 
     @Test

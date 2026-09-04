@@ -103,4 +103,38 @@ class AppConfigTest {
         assertTrue(config1.toString().contains("kPath"));
         assertTrue(config1.toString().contains("vectors.dat"));
     }
+
+    @Test
+    @DisplayName("Should resolve Gemini API key from JVM system property gemini.api.key")
+    void testGeminiApiKeySystemPropertyResolution() {
+        String origProp = System.getProperty("gemini.api.key");
+        try {
+            System.setProperty("gemini.api.key", "test-system-property-key-123");
+            AppConfig config = AppConfig.loadDefaults();
+            assertEquals("test-system-property-key-123", config.getGeminiApiKey());
+        } finally {
+            if (origProp != null) {
+                System.setProperty("gemini.api.key", origProp);
+            } else {
+                System.clearProperty("gemini.api.key");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Should give precedence to gemini.api.key system property")
+    void testGeminiApiKeyPrecedence() {
+        String origProp = System.getProperty("gemini.api.key");
+        try {
+            System.setProperty("gemini.api.key", "priority-system-key");
+            AppConfig config = AppConfig.loadDefaults();
+            assertEquals("priority-system-key", config.getGeminiApiKey(), "System property gemini.api.key must take precedence");
+        } finally {
+            if (origProp != null) {
+                System.setProperty("gemini.api.key", origProp);
+            } else {
+                System.clearProperty("gemini.api.key");
+            }
+        }
+    }
 }

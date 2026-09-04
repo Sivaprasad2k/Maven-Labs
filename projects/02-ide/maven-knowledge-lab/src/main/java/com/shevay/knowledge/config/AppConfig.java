@@ -224,34 +224,21 @@ public final class AppConfig {
         if (p.isAbsolute() && java.nio.file.Files.exists(p)) {
             return p;
         }
-        // 1. Check relative to current working directory (CLI execution)
-        if (java.nio.file.Files.exists(p)) {
-            return p.toAbsolutePath().normalize();
-        }
-        // 2. Check ServletContext real path if bound
+        // 1. Check ServletContext real path if bound (Web execution)
         if (servletContextRealPath != null) {
             java.nio.file.Path webPath = java.nio.file.Paths.get(servletContextRealPath, pathStr);
             if (java.nio.file.Files.exists(webPath)) {
                 return webPath.toAbsolutePath().normalize();
             }
         }
-        // 3. Check code source location parent (WAR unpacked location or target/classes)
-        try {
-            java.net.URL codeLoc = AppConfig.class.getProtectionDomain().getCodeSource().getLocation();
-            if (codeLoc != null) {
-                java.nio.file.Path classPathLoc = java.nio.file.Paths.get(codeLoc.toURI());
-                java.nio.file.Path webappRoot = classPathLoc.getParent() != null && classPathLoc.getParent().getParent() != null
-                        ? classPathLoc.getParent().getParent()
-                        : classPathLoc.getParent();
-                if (webappRoot != null) {
-                    java.nio.file.Path candidate = webappRoot.resolve(pathStr);
-                    if (java.nio.file.Files.exists(candidate)) {
-                        return candidate.toAbsolutePath().normalize();
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-
+        // 2. Check relative to current working directory (CLI execution)
+        if (java.nio.file.Files.exists(p)) {
+            return p.toAbsolutePath().normalize();
+        }
+        // 3. Fallback to webPath if servletContextRealPath is bound
+        if (servletContextRealPath != null) {
+            return java.nio.file.Paths.get(servletContextRealPath, pathStr).toAbsolutePath().normalize();
+        }
         // 4. Fallback to normalized absolute path
         return p.toAbsolutePath().normalize();
     }
@@ -313,12 +300,17 @@ public final class AppConfig {
     }
 
     /**
-     * Reads GEMINI_API_KEY environment variable.
+     * Resolves the Gemini API key checking JVM system property (`gemini.api.key`),
+     * environment variable (`GEMINI_API_KEY`), and returning null if not configured.
      * NEVER prints, logs, or exposes the API key.
      *
      * @return API key string or null if not set
      */
     public String getGeminiApiKey() {
+        String sysProp = System.getProperty("gemini.api.key");
+        if (sysProp != null) {
+            return sysProp;
+        }
         return System.getenv("GEMINI_API_KEY");
     }
 

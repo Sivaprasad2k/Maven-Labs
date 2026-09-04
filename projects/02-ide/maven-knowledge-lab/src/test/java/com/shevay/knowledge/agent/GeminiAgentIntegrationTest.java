@@ -4,9 +4,18 @@ import com.shevay.knowledge.config.AppConfig;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Opt-in live integration test against Google Gemini Agent Decision Provider.
+ *
+ * <p>To execute this test:
+ * <code>.\mvnw.cmd test -Dgemini.integration=true</code>
+ * (Requires GEMINI_API_KEY environment variable to be set)</p>
+ */
+@EnabledIfSystemProperty(named = "gemini.integration", matches = "true")
 class GeminiAgentIntegrationTest {
 
     @Test

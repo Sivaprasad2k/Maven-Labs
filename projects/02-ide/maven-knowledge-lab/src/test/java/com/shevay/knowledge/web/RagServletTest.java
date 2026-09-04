@@ -200,4 +200,31 @@ class RagServletTest {
         assertFalse(body.contains("GEMINI_API_KEY"), "Error response must NEVER expose API credentials");
         assertFalse(body.contains("at com.shevay"), "Error response must NEVER expose java stack traces");
     }
+
+    @Test
+    @DisplayName("RagServlet.init must throw ServletException when ServletContext attributes are missing")
+    void testInitThrowsServletExceptionWhenContextAttributesMissing() {
+        RagServlet servlet = new RagServlet();
+        jakarta.servlet.ServletContext emptyServletContext = (jakarta.servlet.ServletContext) java.lang.reflect.Proxy.newProxyInstance(
+                jakarta.servlet.ServletContext.class.getClassLoader(),
+                new Class<?>[]{jakarta.servlet.ServletContext.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getAttribute" -> null;
+                    default -> null;
+                }
+        );
+        jakarta.servlet.ServletConfig mockConfig = (jakarta.servlet.ServletConfig) java.lang.reflect.Proxy.newProxyInstance(
+                jakarta.servlet.ServletConfig.class.getClassLoader(),
+                new Class<?>[]{jakarta.servlet.ServletConfig.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getServletContext" -> emptyServletContext;
+                    case "getServletName" -> "RagServlet";
+                    default -> null;
+                }
+        );
+
+        jakarta.servlet.ServletException ex = assertThrows(jakarta.servlet.ServletException.class, () -> servlet.init(mockConfig));
+        assertTrue(ex.getMessage().contains("missing from ServletContext"),
+                "RagServlet must fail fast with ServletException instead of instantiating DummyEmbeddingProvider");
+    }
 }

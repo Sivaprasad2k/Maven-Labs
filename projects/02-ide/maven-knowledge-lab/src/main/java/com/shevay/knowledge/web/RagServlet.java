@@ -2,17 +2,9 @@ package com.shevay.knowledge.web;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shevay.knowledge.config.AppConfig;
-import com.shevay.knowledge.embedding.DummyEmbeddingProvider;
-
-import com.shevay.knowledge.generation.ContextAssembler;
-import com.shevay.knowledge.generation.DummyLlmGenerationProvider;
 import com.shevay.knowledge.generation.GenerationException;
-import com.shevay.knowledge.generation.PromptBuilder;
 import com.shevay.knowledge.generation.RagService;
 import com.shevay.knowledge.model.RagResponse;
-import com.shevay.knowledge.retrieval.SimilaritySearchService;
-import com.shevay.knowledge.vector.FileVectorStore;
 import com.shevay.knowledge.vector.VectorStore;
 import com.shevay.knowledge.vector.VectorStoreException;
 
@@ -63,21 +55,8 @@ public class RagServlet extends HttpServlet {
             }
         }
 
-        // Lazy fallback if initialized outside full web container context
         if (this.ragService == null || this.vectorStore == null) {
-            AppConfig config = AppConfig.loadDefaults();
-            if (this.vectorStore == null) {
-                this.vectorStore = new FileVectorStore(config);
-            }
-            if (this.ragService == null) {
-                this.ragService = new RagService(
-                        new SimilaritySearchService(config),
-                        new DummyEmbeddingProvider(config.getEmbeddingDimensions()),
-                        new ContextAssembler(),
-                        new PromptBuilder(),
-                        new DummyLlmGenerationProvider()
-                );
-            }
+            throw new ServletException("Required application services (RagService, VectorStore) are missing from ServletContext.");
         }
     }
 

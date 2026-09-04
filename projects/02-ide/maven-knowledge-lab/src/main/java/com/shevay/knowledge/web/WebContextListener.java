@@ -61,12 +61,15 @@ public class WebContextListener implements ServletContextListener {
     private static EmbeddingProvider createEmbeddingProvider(AppConfig config) {
         String providerName = config.getEmbeddingProvider();
         if ("dummy".equalsIgnoreCase(providerName) || "dummy".equalsIgnoreCase(System.getProperty("embedding.provider", ""))) {
+            System.out.println("Gemini embedding provider unavailable; using dummy provider");
             return new DummyEmbeddingProvider(config.getEmbeddingDimensions());
         }
         String apiKey = config.getGeminiApiKey();
         if (apiKey == null || apiKey.isBlank()) {
+            System.out.println("Gemini embedding provider unavailable; using dummy provider");
             return new DummyEmbeddingProvider(config.getEmbeddingDimensions());
         }
+        System.out.println("Gemini embedding provider initialized");
         return new GeminiEmbeddingProvider(config);
     }
 
