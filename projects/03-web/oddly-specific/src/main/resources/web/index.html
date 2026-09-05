@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Oddly Specific - Interactive Web Experience</title>
+    <meta name="description" content="A playful, strange, and technically intriguing interactive web experiment.">
+    <!-- Google Fonts: Syne for headlines, Inter for body, JetBrains Mono for accents -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Viewport Container (Full 100dvh viewport) -->
+    <div class="viewport-stage">
+
+        <!-- Ambient Background Layers -->
+        <div class="glow-top-left" aria-hidden="true"></div>
+        <div class="glow-bottom-right" aria-hidden="true"></div>
+        <div class="scanline-overlay" aria-hidden="true"></div>
+
+        <!-- Wireframe Globe Vector Abstraction -->
+        <div class="globe-bg" aria-hidden="true">
+            <svg viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="400" cy="400" r="320" stroke="rgba(239, 68, 68, 0.12)" stroke-width="1.5" stroke-dasharray="8 6"/>
+                <circle cx="400" cy="400" r="240" stroke="rgba(239, 68, 68, 0.18)" stroke-width="1"/>
+                <ellipse cx="400" cy="400" rx="320" ry="120" stroke="rgba(239, 68, 68, 0.15)" stroke-width="1.5"/>
+                <ellipse cx="400" cy="400" rx="120" ry="320" stroke="rgba(239, 68, 68, 0.15)" stroke-width="1.5"/>
+                <path d="M 80 400 L 720 400" stroke="rgba(239, 68, 68, 0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+                <path d="M 400 80 L 400 720" stroke="rgba(239, 68, 68, 0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+            </svg>
+        </div>
+
+        <!-- Minimal Top Identity Bar -->
+        <header class="top-bar">
+            <div class="brand">
+                <span class="brand-dot"></span>
+                <span class="brand-title">ODDLY SPECIFIC</span>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">STATUS</span>
+                <span id="session-tag" style="display:none;"></span>
+            </div>
+        </header>
+
+        <!-- Main Viewport Content Area -->
+        <main class="content-viewport">
+
+            <!-- STATE 1: LANDING SCREEN -->
+            <section id="state-landing" class="stage-view active" aria-labelledby="landing-heading">
+                <div class="view-center">
+                    <div class="eyebrow-pill">INTERACTIVE CURIOSITY</div>
+                    <h1 id="landing-heading" class="hero-title">READY?</h1>
+                    <p class="hero-lead">Some features of this experience may use your browser's location.</p>
+
+                    <div class="action-wrap">
+                        <button id="btn-start" class="btn-cyber-primary" type="button" aria-label="Start Experience">
+                            <span class="btn-text">[ START EXPERIENCE ]</span>
+                            <span class="btn-glow"></span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STATE 2: CHALLENGE SCREEN -->
+            <section id="state-challenge" class="stage-view" aria-labelledby="challenge-title">
+                <div class="view-center challenge-center">
+                    <div class="challenge-header">
+                        <span class="challenge-category" id="challenge-type-tag">CHALLENGE</span>
+                        <h2 id="challenge-title" class="challenge-heading">Loading Challenge...</h2>
+                        <p id="challenge-instructions" class="challenge-desc"></p>
+                    </div>
+                    
+                    <div id="challenge-interactive-area" class="challenge-stage">
+                        <!-- Rendered dynamically by app.js -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- STATE 3: SECURITY ALERT / ANALYSIS SCREEN -->
+            <section id="state-analysis" class="stage-view" aria-label="Analysis in progress">
+                <div class="view-center analysis-center">
+                    <div class="alert-icon-wrap" aria-hidden="true">
+                        <svg class="alert-triangle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+
+                    <div class="alert-subhead">SECURITY ALERT</div>
+                    <h1 class="hacked-title">YOU GOT <span class="accent-red">HACKED.</span></h1>
+                    <div class="analyzing-label">ANALYZING YOUR DEVICE...</div>
+
+                    <div class="meter-wrapper">
+                        <div class="meter-bar-track">
+                            <div class="meter-bar-fill" id="analysis-progress"></div>
+                        </div>
+                        <span class="meter-readout" id="analysis-percent">0%</span>
+                    </div>
+
+                    <div class="analysis-feed" id="analysis-feed" aria-live="polite">
+                        <!-- Staged analysis log output -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- STATE 4: REVEAL SCREEN (Hidden intermediary step, maps directly to prank) -->
+            <section id="state-reveal" class="stage-view" aria-labelledby="reveal-heading" style="display:none !important;">
+                <div class="view-center">
+                    <h2 id="reveal-heading">REVEALING</h2>
+                    <span id="reveal-status"></span>
+                </div>
+            </section>
+
+            <!-- STATE 5: PRANK SCREEN -->
+            <section id="state-prank" class="stage-view" aria-labelledby="prank-heading">
+                <div class="view-center prank-center">
+                    <div class="prank-subhead">JUST KIDDING...</div>
+                    <h1 id="prank-heading" class="prank-hero-title">YOU GOT <span class="accent-pink">PRANKED.</span></h1>
+                    <p class="prank-reassurance">Relax! Nothing on your device was accessed.</p>
+                    
+                    <div class="prank-action">
+                        <button id="btn-explain" class="btn-pill-glow" type="button">
+                            <span>SO, WHAT ACTUALLY HAPPENED?</span>
+                            <span class="arrow">&rarr;</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STATE 6: EXPLANATION / REVEAL SCREEN -->
+            <section id="state-explanation" class="stage-view" aria-labelledby="explain-heading">
+                <div class="view-center explain-center">
+                    <h2 id="explain-heading" class="explain-title">WHAT ACTUALLY HAPPENED?</h2>
+
+                    <div class="explain-grid">
+                        <article class="explain-card">
+                            <div class="card-num">01</div>
+                            <div class="card-body">
+                                <h3>HTTP Connection IP</h3>
+                                <p>The server can see the connection IP associated with standard HTTP headers and network routing. This is standard internet routing behavior.</p>
+                            </div>
+                        </article>
+
+                        <article class="explain-card">
+                            <div class="card-num">02</div>
+                            <div class="card-body">
+                                <h3>Browser Geolocation</h3>
+                                <p>Displayed location comes from IP Geolocation routing and browser permission coordinates (if granted). If denied, standard network region data is used.</p>
+                            </div>
+                        </article>
+
+                        <article class="explain-card">
+                            <div class="card-num">03</div>
+                            <div class="card-body">
+                                <h3>Zero Storage &amp; Privacy</h3>
+                                <p>Your session data is strictly ephemeral and held in-memory. Nothing was hacked, penetrated, scanned, or saved to disk.</p>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="explain-action">
+                        <button id="btn-restart" class="btn-cyber-primary" type="button">
+                            <span>[ TRY ANOTHER EXPERIENCE ]</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

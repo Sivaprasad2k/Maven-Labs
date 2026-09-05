@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Oddly Specific - Developer Observability Console</title>
+    <!-- Google Fonts: Syne, Inter, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <!-- Full-Screen Developer Console Viewport -->
+    <div class="admin-viewport">
+
+        <!-- Left Navigation Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="sidebar-top">
+                <div class="sidebar-brand">
+                    <span class="brand-terminal-icon">&gt;_</span>
+                    <div>
+                        <div class="brand-title">ADMIN CONSOLE</div>
+                    </div>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <button id="tab-active" class="nav-item active" type="button">
+                        <span class="nav-icon">🟢</span>
+                        <span class="nav-text">ACTIVE SESSIONS</span>
+                        <span class="nav-badge" id="pill-active">0</span>
+                    </button>
+                    <button id="tab-expired" class="nav-item" type="button">
+                        <span class="nav-icon">📂</span>
+                        <span class="nav-text">EXPIRED SESSIONS</span>
+                        <span class="nav-badge" id="pill-expired">0</span>
+                    </button>
+                    <button id="tab-system" class="nav-item" type="button">
+                        <span class="nav-icon">⚙</span>
+                        <span class="nav-text">SYSTEM STATUS</span>
+                    </button>
+                    <button id="tab-config" class="nav-item" type="button">
+                        <span class="nav-icon">🔒</span>
+                        <span class="nav-text">CONFIGURATION</span>
+                    </button>
+                    <button id="tab-about" class="nav-item" type="button">
+                        <span class="nav-icon">ℹ</span>
+                        <span class="nav-text">ABOUT</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="sidebar-bottom">
+                <div class="server-status-card">
+                    <div class="server-status-header">
+                        <span class="status-dot-pulse"></span>
+                        <span class="server-status-title">LIVE SERVER</span>
+                    </div>
+                    <div class="server-metric">
+                        <span class="lbl">HOST</span>
+                        <span class="val">0.0.0.0:8080</span>
+                    </div>
+                    <div class="server-metric">
+                        <span class="lbl">ACTIVE SESSIONS</span>
+                        <span class="val" id="sidebar-active-count">0</span>
+                    </div>
+                    <div class="server-metric">
+                        <span class="lbl">ENVIRONMENT</span>
+                        <span class="val accent-green">Production</span>
+                    </div>
+                </div>
+
+                <div class="ephemeral-disclaimer">
+                    <span>Ephemeral Sessions Only</span>
+                    <span class="sub-disclaimer">No Persistent Storage</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="admin-main">
+
+            <!-- Top Console Header Bar -->
+            <header class="console-header">
+                <div class="header-left">
+                    <h1 class="header-title">ODDLY SPECIFIC // ADMIN CONSOLE</h1>
+                    <p class="header-subtitle">DEVELOPER OBSERVABILITY CONSOLE &bull; Observe. Understand. Experiment.</p>
+                </div>
+
+                <div class="header-right">
+                    <div class="live-pill" id="live-indicator">
+                        <span class="live-dot"></span>
+                        <span class="live-text">SERVER ONLINE</span>
+                    </div>
+                    <div class="refresh-pill">
+                        <span class="refresh-icon">↻</span>
+                        <span>Auto refresh: 2.5s</span>
+                    </div>
+                    <div class="clock-display" id="clock-display">00:00:00</div>
+                </div>
+            </header>
+
+            <!-- Dashboard Grid View (Active & Expired Views) -->
+            <div class="dashboard-body">
+
+                <!-- VIEW 1 & 2: ACTIVE / EXPIRED SESSIONS (Tables + Detail Panel) -->
+                <div class="sessions-dashboard-grid" id="main-sessions-view">
+                    
+                    <!-- Left Section: Sessions Data Table Panel -->
+                    <section class="panel sessions-table-panel">
+                        <div class="panel-header">
+                            <div class="panel-title-wrap">
+                                <h2 class="panel-title" id="current-view-title">ACTIVE SESSIONS</h2>
+                                <span class="panel-subtitle">Real-time view of user experiences</span>
+                            </div>
+                            <div class="panel-meta">
+                                <span class="badge-count" id="active-count-badge">0 active</span>
+                            </div>
+                        </div>
+
+                        <!-- Active Sessions Table View -->
+                        <div id="view-active" class="admin-view active">
+                            <div id="active-empty-state" class="empty-state">
+                                <div class="empty-icon">📡</div>
+                                <h2>NO ACTIVE SESSIONS</h2>
+                                <p>Waiting for a visitor to start an experience at <code>/</code> ...</p>
+                            </div>
+
+                            <div id="active-table-wrapper" class="table-container hidden">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>CONNECTION IP</th>
+                                            <th>CHALLENGE</th>
+                                            <th>STATUS</th>
+                                            <th>AGE</th>
+                                            <th>ACTIONS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="active-sessions-tbody">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Expired Sessions Table View -->
+                        <div id="view-expired" class="admin-view">
+                            <div id="expired-empty-state" class="empty-state">
+                                <div class="empty-icon">📂</div>
+                                <h2>NO EXPIRED SESSIONS</h2>
+                                <p>Expired or evicted sessions will appear here automatically.</p>
+                            </div>
+
+                            <div id="expired-table-wrapper" class="table-container hidden">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>CONNECTION IP</th>
+                                            <th>LOCATION SUMMARY</th>
+                                            <th>STATUS</th>
+                                            <th>AGE</th>
+                                            <th>ACTIONS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="expired-sessions-tbody">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Right Section: Session Details Inspection Panel -->
+                    <aside class="panel session-detail-panel" id="session-detail-panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">SESSION DETAILS</h2>
+                            <span class="status-pill active" id="detail-status-pill">NO SELECTION</span>
+                        </div>
+
+                        <div class="panel-body" id="detail-panel-content">
+                            <!-- Empty State by default -->
+                            <div class="detail-empty-state" id="detail-empty-state">
+                                <div class="empty-terminal-icon">[ i ]</div>
+                                <h3>NO SESSION SELECTED</h3>
+                                <p>Click any session row in the table to inspect its full environment and coordinates.</p>
+                            </div>
+
+                            <!-- Populated session content -->
+                            <div class="detail-active-content hidden" id="detail-active-content">
+                                <!-- Populated dynamically by admin.js -->
+                            </div>
+                        </div>
+                    </aside>
+
+                </div>
+
+                <!-- VIEW 3: SYSTEM STATUS PANEL (Shown when System Status tab selected) -->
+                <div id="view-system" class="admin-view-standalone hidden">
+                    <section class="panel standalone-panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">SYSTEM STATUS</h2>
+                            <span class="status-pill active">HEALTHY</span>
+                        </div>
+                        <div class="panel-body">
+                            <div class="status-grid">
+                                <div class="status-card">
+                                    <div class="lbl">HTTP SERVER</div>
+                                    <div class="val accent-green">Multithreaded JDK HttpServer</div>
+                                    <div class="sub">Binding: 0.0.0.0:8080</div>
+                                </div>
+                                <div class="status-card">
+                                    <div class="lbl">SESSION ENGINE</div>
+                                    <div class="val accent-green">ConcurrentHashMap Memory Store</div>
+                                    <div class="sub">TTL: 3600 seconds</div>
+                                </div>
+                                <div class="status-card">
+                                    <div class="lbl">IP GEOLOCATION API</div>
+                                    <div class="val accent-green">Active (ip-api.com HTTP JSON)</div>
+                                    <div class="sub">Fallback: Localhost internal loopback</div>
+                                </div>
+                                <div class="status-card">
+                                    <div class="lbl">PRIVACY BOUNDARY</div>
+                                    <div class="val accent-green">Ephemeral (In-Memory Only)</div>
+                                    <div class="sub">Disk Persistence: Disabled</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- VIEW 4: CONFIGURATION PANEL -->
+                <div id="view-config" class="admin-view-standalone hidden">
+                    <section class="panel standalone-panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">CONFIGURATION</h2>
+                            <span class="status-pill active">READ-ONLY</span>
+                        </div>
+                        <div class="panel-body">
+                            <div class="config-table-wrap">
+                                <table class="config-table">
+                                    <thead>
+                                        <tr>
+                                            <th>KEY</th>
+                                            <th>VALUE</th>
+                                            <th>DESCRIPTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>server.port</code></td>
+                                            <td><code>8080</code></td>
+                                            <td>Default HTTP port for web server</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>session.ttl.ms</code></td>
+                                            <td><code>3600000</code></td>
+                                            <td>Session time-to-live before expiration (1 hour)</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>cors.allow.origin</code></td>
+                                            <td><code>*</code></td>
+                                            <td>Access control allow origin headers</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>storage.mode</code></td>
+                                            <td><code>EPHEMERAL_MEMORY</code></td>
+                                            <td>Zero persistent storage configuration</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- VIEW 5: ABOUT PANEL -->
+                <div id="view-about" class="admin-view-standalone hidden">
+                    <section class="panel standalone-panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">ABOUT ODDLY SPECIFIC ADMIN CONSOLE</h2>
+                        </div>
+                        <div class="panel-body about-body">
+                            <p class="about-lead">Real-time developer observability module for the Oddly Specific web experiment.</p>
+                            <div class="about-features">
+                                <div class="feat-item">
+                                    <strong>Observability:</strong> Provides real-time visibility into active interactive sessions, connection IP routing, and browser permission coordinates.
+                                </div>
+                                <div class="feat-item">
+                                    <strong>Privacy &amp; Boundaries:</strong> All sessions are strictly held in-memory without persistent database storage or third-party tracking SDKs.
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Bottom Recent Activity Stream -->
+                <section class="panel activity-panel">
+                    <div class="panel-header compact">
+                        <h3 class="panel-title-sm">RECENT ACTIVITY STREAM</h3>
+                        <span class="activity-live-tag">● LIVE AUDIT LOG</span>
+                    </div>
+                    <div class="activity-log" id="activity-log">
+                        <div class="log-entry">
+                            <span class="log-time">[SYSTEM INITIALIZED]</span>
+                            <span class="log-msg">Developer Observability Console connected to HttpServer session engine.</span>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Hidden Modal Support for mobile inspection -->
+        <div id="inspector-modal" class="modal-backdrop hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h2>SESSION INSPECTOR</h2>
+                    <button id="btn-close-modal" class="btn-close" type="button">&times;</button>
+                </div>
+                <div class="modal-body" id="inspector-content">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/js/admin.js"></script>
+</body>
+</html>
