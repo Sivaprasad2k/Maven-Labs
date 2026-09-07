@@ -146,26 +146,26 @@ class OddlySpecificIntegrationTest {
     }
 
     @Test
-    void testAdminPageServing() throws Exception {
+    void testAdminPageUnauthenticatedReturns401() throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + "/admin"))
                 .GET()
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("DEVELOPER OBSERVABILITY CONSOLE"));
+        assertEquals(401, response.statusCode());
+        assertEquals("Basic realm=\"Oddly Specific Admin Console\"", response.headers().firstValue("WWW-Authenticate").orElse(""));
     }
 
     @Test
-    void testAdminApiActiveSessions() throws Exception {
+    void testAdminApiUnauthenticatedReturns401() throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + "/api/admin/sessions"))
                 .GET()
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, response.statusCode());
-        assertTrue(response.headers().firstValue("Content-Type").orElse("").contains("application/json"));
+        assertEquals(401, response.statusCode());
+        assertEquals("Basic realm=\"Oddly Specific Admin Console\"", response.headers().firstValue("WWW-Authenticate").orElse(""));
     }
 }

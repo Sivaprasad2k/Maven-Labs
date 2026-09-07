@@ -14,6 +14,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,16 +23,75 @@ class AdminHandlerTest {
 
     private SessionManager sessionManager;
     private AdminHandler adminHandler;
+    private static final String TEST_USER = "testadmin";
+    private static final String TEST_PASS = "testsecret123";
 
     @BeforeEach
     void setUp() {
         sessionManager = new SessionManager();
-        adminHandler = new AdminHandler(sessionManager);
+        adminHandler = new AdminHandler(sessionManager, TEST_USER, TEST_PASS, true);
+    }
+
+    private static String basicAuth(String username, String password) {
+        String pair = username + ":" + password;
+        return "Basic " + Base64.getEncoder().encodeToString(pair.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
-    void testGetActiveSessionsEmpty() throws Exception {
+    void testAdminDisabledReturns403() throws Exception {
+        AdminHandler disabledHandler = new AdminHandler(sessionManager, TEST_USER, TEST_PASS, false);
+        TestHttpExchange exchange = new TestHttpExchange("/admin", "GET");
+        disabledHandler.handle(exchange);
+
+        assertEquals(403, exchange.getResponseCode());
+        assertTrue(exchange.getResponseBodyAsString().contains("Admin Console is disabled"));
+    }
+
+    @Test
+    void testAdminEnabledWithoutServerCredentialsReturns401() throws Exception {
+        AdminHandler unconfiguredHandler = new AdminHandler(sessionManager, null, null, true);
         TestHttpExchange exchange = new TestHttpExchange("/api/admin/sessions", "GET");
+        unconfiguredHandler.handle(exchange);
+
+        assertEquals(401, exchange.getResponseCode());
+        assertEquals("Basic realm=\"Oddly Specific Admin Console\"", exchange.getResponseHeaders().getFirst("WWW-Authenticate"));
+    }
+
+    @Test
+    void testAdminEnabledMissingAuthHeaderReturns401() throws Exception {
+        TestHttpExchange exchange = new TestHttpExchange("/api/admin/sessions", "GET");
+        adminHandler.handle(exchange);
+
+        assertEquals(401, exchange.getResponseCode());
+        assertEquals("Basic realm=\"Oddly Specific Admin Console\"", exchange.getResponseHeaders().getFirst("WWW-Authenticate"));
+        assertTrue(exchange.getResponseBodyAsString().contains("Unauthorized"));
+    }
+
+    @Test
+    void testAdminEnabledInvalidCredentialsReturns401() throws Exception {
+        TestHttpExchange exchange = new TestHttpExchange("/api/admin/sessions", "GET");
+        exchange.getRequestHeaders().set("Authorization", basicAuth("wronguser", "wrongpass"));
+        adminHandler.handle(exchange);
+
+        assertEquals(401, exchange.getResponseCode());
+        assertEquals("Basic realm=\"Oddly Specific Admin Console\"", exchange.getResponseHeaders().getFirst("WWW-Authenticate"));
+        assertTrue(exchange.getResponseBodyAsString().contains("Unauthorized"));
+    }
+
+    @Test
+    void testValidCredentialsAccessAdminUi() throws Exception {
+        TestHttpExchange exchange = new TestHttpExchange("/admin", "GET");
+        exchange.getRequestHeaders().set("Authorization", basicAuth(TEST_USER, TEST_PASS));
+        adminHandler.handle(exchange);
+
+        assertEquals(200, exchange.getResponseCode());
+        assertTrue(exchange.getResponseBodyAsString().contains("ADMIN CONSOLE"));
+    }
+
+    @Test
+    void testValidCredentialsAccessAdminApi() throws Exception {
+        TestHttpExchange exchange = new TestHttpExchange("/api/admin/sessions", "GET");
+        exchange.getRequestHeaders().set("Authorization", basicAuth(TEST_USER, TEST_PASS));
         adminHandler.handle(exchange);
 
         assertEquals(200, exchange.getResponseCode());
@@ -38,10 +99,11 @@ class AdminHandlerTest {
     }
 
     @Test
-    void testGetActiveSessionsWithSession() throws Exception {
+    void testGetActiveSessionsWithSessionAndValidAuth() throws Exception {
         Session session = sessionManager.createSession("REACTION_TEST", "192.168.1.50");
 
         TestHttpExchange exchange = new TestHttpExchange("/api/admin/sessions", "GET");
+        exchange.getRequestHeaders().set("Authorization", basicAuth(TEST_USER, TEST_PASS));
         adminHandler.handle(exchange);
 
         assertEquals(200, exchange.getResponseCode());
@@ -57,11 +119,13 @@ class AdminHandlerTest {
 
         // Manually expire session
         TestHttpExchange expireExchange = new TestHttpExchange("/api/admin/sessions/" + session.getSessionId() + "/expire", "POST");
+        expireExchange.getRequestHeaders().set("Authorization", basicAuth(TEST_USER, TEST_PASS));
         adminHandler.handle(expireExchange);
         assertEquals(200, expireExchange.getResponseCode());
 
         // Get Expired Sessions
         TestHttpExchange getExpiredExchange = new TestHttpExchange("/api/admin/sessions/expired", "GET");
+        getExpiredExchange.getRequestHeaders().set("Authorization", basicAuth(TEST_USER, TEST_PASS));
         adminHandler.handle(getExpiredExchange);
         assertEquals(200, getExpiredExchange.getResponseCode());
 
@@ -75,10 +139,29 @@ class AdminHandlerTest {
         Session session = sessionManager.createSession("MOVING_BUTTON", "172.16.0.2");
 
         TestHttpExchange deleteExchange = new TestHttpExchange("/api/admin/sessions/" + session.getSessionId(), "DELETE");
+        deleteExchange.getRequestHeaders().set("Authorization", basicAuth(TEST_USER, TEST_PASS));
         adminHandler.handle(deleteExchange);
 
         assertEquals(200, deleteExchange.getResponseCode());
         assertTrue(sessionManager.getSession(session.getSessionId()).isEmpty());
+    }
+
+    @Test
+    void testAdminApiCannotBypassAuthentication() throws Exception {
+        // GET sessions bypass attempt
+        TestHttpExchange getExchange = new TestHttpExchange("/api/admin/sessions", "GET");
+        adminHandler.handle(getExchange);
+        assertEquals(401, getExchange.getResponseCode());
+
+        // POST expire bypass attempt
+        TestHttpExchange expireExchange = new TestHttpExchange("/api/admin/sessions/dummy/expire", "POST");
+        adminHandler.handle(expireExchange);
+        assertEquals(401, expireExchange.getResponseCode());
+
+        // DELETE evict bypass attempt
+        TestHttpExchange deleteExchange = new TestHttpExchange("/api/admin/sessions/dummy", "DELETE");
+        adminHandler.handle(deleteExchange);
+        assertEquals(401, deleteExchange.getResponseCode());
     }
 
     private static class TestHttpExchange extends HttpExchange {

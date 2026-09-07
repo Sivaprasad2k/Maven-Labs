@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,12 +21,28 @@ public class AdminHandler implements HttpHandler {
     private final SessionManager sessionManager;
     private final ObjectMapper objectMapper;
     private final boolean adminEnabled;
+    private final String adminUsername;
+    private final String adminPassword;
 
     public AdminHandler(SessionManager sessionManager) {
+        this(
+            sessionManager,
+            System.getenv("ADMIN_USERNAME"),
+            System.getenv("ADMIN_PASSWORD"),
+            parseAdminEnabled(System.getenv("ADMIN_CONSOLE_ENABLED"))
+        );
+    }
+
+    public AdminHandler(SessionManager sessionManager, String adminUsername, String adminPassword, boolean adminEnabled) {
         this.sessionManager = sessionManager;
         this.objectMapper = new ObjectMapper();
-        String envFlag = System.getenv("ADMIN_CONSOLE_ENABLED");
-        this.adminEnabled = (envFlag == null || envFlag.isBlank()) || Boolean.parseBoolean(envFlag.trim());
+        this.adminUsername = adminUsername != null ? adminUsername.trim() : null;
+        this.adminPassword = adminPassword != null ? adminPassword.trim() : null;
+        this.adminEnabled = adminEnabled;
+    }
+
+    private static boolean parseAdminEnabled(String envFlag) {
+        return (envFlag == null || envFlag.isBlank()) || Boolean.parseBoolean(envFlag.trim());
     }
 
     public static class SessionAdminDto {
@@ -99,25 +117,29 @@ public class AdminHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        if (!adminEnabled) {
-            sendJsonResponse(exchange, 403, Map.of("error", "Admin Console is disabled by configuration."));
-            return;
-        }
-
-        URI uri = exchange.getRequestURI();
-        String path = uri.getPath();
-        String method = exchange.getRequestMethod();
-
         // CORS headers for local dev testing
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
+        String method = exchange.getRequestMethod();
         if ("OPTIONS".equalsIgnoreCase(method)) {
             exchange.sendResponseHeaders(204, -1);
             exchange.close();
             return;
         }
+
+        if (!adminEnabled) {
+            sendJsonResponse(exchange, 403, Map.of("error", "Admin Console is disabled by configuration."));
+            return;
+        }
+
+        if (!authenticate(exchange)) {
+            return;
+        }
+
+        URI uri = exchange.getRequestURI();
+        String path = uri.getPath();
 
         try {
             if ("/admin".equals(path) || "/admin/".equals(path) || "/admin/expired".equals(path)) {
@@ -218,6 +240,59 @@ public class AdminHandler implements HttpHandler {
             os.write(body);
             os.flush();
         }
+    }
+
+    private boolean authenticate(HttpExchange exchange) throws IOException {
+        if (adminUsername == null || adminUsername.isBlank() || adminPassword == null || adminPassword.isBlank()) {
+            sendUnauthorizedResponse(exchange, "Unauthorized: Admin credentials not configured on server.");
+            return false;
+        }
+
+        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authHeader == null || !authHeader.regionMatches(true, 0, "Basic ", 0, 6)) {
+            sendUnauthorizedResponse(exchange, "Unauthorized: Basic authentication required.");
+            return false;
+        }
+
+        String base64Credentials = authHeader.substring(6).trim();
+        String credentials;
+        try {
+            byte[] decoded = Base64.getDecoder().decode(base64Credentials);
+            credentials = new String(decoded, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            sendUnauthorizedResponse(exchange, "Unauthorized: Invalid credentials encoding.");
+            return false;
+        }
+
+        int colonIndex = credentials.indexOf(':');
+        if (colonIndex == -1) {
+            sendUnauthorizedResponse(exchange, "Unauthorized: Invalid credentials format.");
+            return false;
+        }
+
+        String username = credentials.substring(0, colonIndex);
+        String password = credentials.substring(colonIndex + 1);
+
+        boolean usernameMatch = MessageDigest.isEqual(
+                username.getBytes(StandardCharsets.UTF_8),
+                adminUsername.getBytes(StandardCharsets.UTF_8)
+        );
+        boolean passwordMatch = MessageDigest.isEqual(
+                password.getBytes(StandardCharsets.UTF_8),
+                adminPassword.getBytes(StandardCharsets.UTF_8)
+        );
+
+        if (!usernameMatch || !passwordMatch) {
+            sendUnauthorizedResponse(exchange, "Unauthorized: Invalid username or password.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private void sendUnauthorizedResponse(HttpExchange exchange, String message) throws IOException {
+        exchange.getResponseHeaders().set("WWW-Authenticate", "Basic realm=\"Oddly Specific Admin Console\"");
+        sendJsonResponse(exchange, 401, Map.of("error", message));
     }
 
     private byte[] readAllBytes(InputStream inputStream) throws IOException {
