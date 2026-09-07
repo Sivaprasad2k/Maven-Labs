@@ -79,7 +79,7 @@
         }
     }
 
-    // Flow Step 1: Start Experience & Capture Browser GPS + Session Metadata
+    // Flow Step 1: Start Experience & Request Standard Browser Geolocation
     function handleStartExperience() {
         elements.btnStart.disabled = true;
 
@@ -95,47 +95,32 @@
             screenResolution: (window.screen) ? `${window.screen.width}x${window.screen.height}` : 'Unknown'
         };
 
-        const attemptGeolocation = (highAccuracy, timeoutMs) => {
-            return new Promise((resolve) => {
-                if (!('geolocation' in navigator)) {
-                    resolve(null);
-                    return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve(pos.coords),
-                    (err) => {
-                        console.warn(`Browser GPS attempt (highAccuracy=${highAccuracy}, code=${err.code}): ${err.message}`);
-                        resolve(null);
-                    },
-                    {
-                        enableHighAccuracy: highAccuracy,
-                        timeout: timeoutMs,
-                        maximumAge: 60000
-                    }
-                );
-            });
-        };
-
-        (async () => {
-            // Attempt 1: High accuracy mode (fast timeout 3.5s)
-            let coords = await attemptGeolocation(true, 3500);
-
-            // Attempt 2: Standard/Wi-Fi accuracy fallback (timeout 4.5s) - essential for desktop browsers without hardware GPS
-            if (!coords) {
-                coords = await attemptGeolocation(false, 4500);
-            }
-
-            if (coords) {
-                clientEnv.locationGranted = true;
-                clientEnv.latitude = coords.latitude;
-                clientEnv.longitude = coords.longitude;
-                clientEnv.accuracy = coords.accuracy;
-            } else {
-                clientEnv.locationGranted = false;
-            }
-
+        if (!('geolocation' in navigator)) {
             startSessionOnBackend(clientEnv);
-        })();
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                if (pos && pos.coords) {
+                    clientEnv.locationGranted = true;
+                    clientEnv.latitude = pos.coords.latitude;
+                    clientEnv.longitude = pos.coords.longitude;
+                    clientEnv.accuracy = pos.coords.accuracy;
+                }
+                startSessionOnBackend(clientEnv);
+            },
+            (err) => {
+                // User denied or error occurred - proceed gracefully without re-requesting
+                clientEnv.locationGranted = false;
+                startSessionOnBackend(clientEnv);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            }
+        );
     }
 
     // Call Backend POST /api/session/start
