@@ -79,7 +79,7 @@
         }
     }
 
-    // Flow Step 1: Start Experience & Request Standard Browser Geolocation
+    // Flow Step 1: Start Experience & Request Browser Geolocation (with desktop Wi-Fi fallback)
     function handleStartExperience() {
         elements.btnStart.disabled = true;
 
@@ -100,27 +100,40 @@
             return;
         }
 
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                if (pos && pos.coords) {
-                    clientEnv.locationGranted = true;
-                    clientEnv.latitude = pos.coords.latitude;
-                    clientEnv.longitude = pos.coords.longitude;
-                    clientEnv.accuracy = pos.coords.accuracy;
-                }
-                startSessionOnBackend(clientEnv);
-            },
-            (err) => {
-                // User denied or error occurred - proceed gracefully without re-requesting
-                clientEnv.locationGranted = false;
-                startSessionOnBackend(clientEnv);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
+        const getCoords = (highAccuracy, timeoutMs) => {
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve(pos ? pos.coords : null),
+                    (err) => resolve(null),
+                    {
+                        enableHighAccuracy: highAccuracy,
+                        timeout: timeoutMs,
+                        maximumAge: 60000
+                    }
+                );
+            });
+        };
+
+        (async () => {
+            // Attempt 1: High accuracy mode (hardware GPS)
+            let coords = await getCoords(true, 4000);
+
+            // Attempt 2: Standard accuracy mode (Wi-Fi / network positioning for desktop PCs)
+            if (!coords) {
+                coords = await getCoords(false, 5000);
             }
-        );
+
+            if (coords) {
+                clientEnv.locationGranted = true;
+                clientEnv.latitude = coords.latitude;
+                clientEnv.longitude = coords.longitude;
+                clientEnv.accuracy = coords.accuracy;
+            } else {
+                clientEnv.locationGranted = false;
+            }
+
+            startSessionOnBackend(clientEnv);
+        })();
     }
 
     // Call Backend POST /api/session/start
