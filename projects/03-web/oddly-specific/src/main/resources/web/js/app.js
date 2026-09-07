@@ -79,7 +79,7 @@
         }
     }
 
-    // Flow Step 1: Start Experience & Request Browser Geolocation (with desktop Wi-Fi fallback)
+    // Flow Step 1: Start Experience & Request High-Accuracy Hardware GPS (with network fallback)
     function handleStartExperience() {
         elements.btnStart.disabled = true;
 
@@ -108,19 +108,19 @@
                     {
                         enableHighAccuracy: highAccuracy,
                         timeout: timeoutMs,
-                        maximumAge: 60000
+                        maximumAge: 0
                     }
                 );
             });
         };
 
         (async () => {
-            // Attempt 1: High accuracy mode (hardware GPS)
-            let coords = await getCoords(true, 4000);
+            // Attempt 1: High accuracy mode (hardware GPS - 15s timeout to allow permission prompt interaction)
+            let coords = await getCoords(true, 15000);
 
-            // Attempt 2: Standard accuracy mode (Wi-Fi / network positioning for desktop PCs)
+            // Attempt 2: Standard accuracy fallback (Wi-Fi / network positioning for desktop browsers without hardware GPS)
             if (!coords) {
-                coords = await getCoords(false, 5000);
+                coords = await getCoords(false, 10000);
             }
 
             if (coords) {
